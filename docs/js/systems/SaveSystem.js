@@ -4,6 +4,7 @@ var SaveSystem = {
   save: function() {
     try {
       var saveData = {
+        version: CONFIG.SAVE_VERSION,
         hero: {
           level: GameState.hero.level,
           exp: GameState.hero.exp,
@@ -25,7 +26,16 @@ var SaveSystem = {
           totalGold: GameState.meta.totalGold,
           playTime: GameState.meta.playTime,
           lastSaveTime: Date.now()
-        }
+        },
+        skills: GameState.skills ? {
+          powerStrike: { level: GameState.skills.powerStrike.level, unlocked: GameState.skills.powerStrike.unlocked },
+          shield:      { level: GameState.skills.shield.level,      unlocked: GameState.skills.shield.unlocked },
+          drain:       { level: GameState.skills.drain.level,       unlocked: GameState.skills.drain.unlocked }
+        } : null,
+        equipment: GameState.equipment ? {
+          equipped: GameState.equipment.equipped,
+          inventory: GameState.equipment.inventory
+        } : null
       };
       localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saveData));
     } catch (e) {
@@ -44,8 +54,34 @@ var SaveSystem = {
     }
   },
 
+  // 구버전 세이브 데이터를 현재 버전으로 마이그레이션
+  _migrate: function(saveData) {
+    if (!saveData.version) {
+      saveData.version = 0;
+    }
+
+    // v0 → v1: skills, equipment 필드 추가
+    if (saveData.version < 1) {
+      saveData.skills = saveData.skills || {
+        powerStrike: { level: 0, unlocked: false },
+        shield:      { level: 0, unlocked: false },
+        drain:       { level: 0, unlocked: false }
+      };
+      saveData.equipment = saveData.equipment || {
+        equipped: { weapon: null, armor: null, ring: null },
+        inventory: []
+      };
+      saveData.version = 1;
+    }
+
+    return saveData;
+  },
+
   applySaveData: function(saveData) {
     if (!saveData) return;
+
+    // 마이그레이션 적용
+    saveData = this._migrate(saveData);
 
     // hero 데이터 복원
     var h = saveData.hero || {};
@@ -79,6 +115,29 @@ var SaveSystem = {
     GameState.meta.totalGold = m.totalGold || 0;
     GameState.meta.playTime = m.playTime || 0;
     GameState.meta.lastSaveTime = m.lastSaveTime || Date.now();
+
+    // skills 복원
+    if (GameState.skills && saveData.skills) {
+      var sk = saveData.skills;
+      var keys = ['powerStrike', 'shield', 'drain'];
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        if (sk[key] && GameState.skills[key]) {
+          GameState.skills[key].level   = sk[key].level   || 0;
+          GameState.skills[key].unlocked = sk[key].unlocked || false;
+          GameState.skills[key].timer   = 0;
+        }
+      }
+    }
+
+    // equipment 복원
+    if (GameState.equipment && saveData.equipment) {
+      var eq = saveData.equipment;
+      GameState.equipment.equipped  = eq.equipped  || { weapon: null, armor: null, ring: null };
+      GameState.equipment.inventory = eq.inventory || [];
+      // 장비 스탯 재반영
+      UpgradeSystem.recalculateStats();
+    }
   },
 
   calculateOfflineReward: function() {
