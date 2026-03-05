@@ -62,17 +62,32 @@ var CombatSystem = {
         1.5
       );
 
-      GameState.hero.hp = Math.max(0, GameState.hero.hp - monsterResult.damage);
+      // 방어막 활성화 시 피해 50% 감소
+      var actualDamage = monsterResult.damage;
+      if (GameState.shieldActive) {
+        actualDamage = Math.floor(actualDamage * 0.5);
+      }
+
+      GameState.hero.hp = Math.max(0, GameState.hero.hp - actualDamage);
       events.push({
         type: 'monsterAttack',
-        damage: monsterResult.damage,
-        isCrit: monsterResult.isCrit
+        damage: actualDamage,
+        isCrit: monsterResult.isCrit,
+        shielded: GameState.shieldActive
       });
 
       // 영웅 사망 처리 (HP가 0이 되면 회복)
       if (GameState.hero.hp <= 0) {
         GameState.hero.hp = Math.floor(GameState.hero.maxHp * 0.3);
         events.push({ type: 'heroDeath' });
+      }
+    }
+
+    // 스킬 시스템 처리 후 이벤트 병합
+    if (typeof SkillSystem !== 'undefined') {
+      var skillEvents = SkillSystem.processTick(delta);
+      for (var j = 0; j < skillEvents.length; j++) {
+        events.push(skillEvents[j]);
       }
     }
 
