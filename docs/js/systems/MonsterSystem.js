@@ -94,12 +94,25 @@ var MonsterSystem = {
     GameState.meta.totalKills++;
     GameState.stage.killCount++;
 
+    // 장비 드롭 체크
+    var droppedItem = null;
+    if (typeof EquipmentSystem !== 'undefined') {
+      droppedItem = EquipmentSystem.tryDrop(GameState.stage.current);
+      if (droppedItem) {
+        var added = EquipmentSystem._addToInventory(droppedItem);
+        if (!added) droppedItem = null; // 인벤토리 가득 찼으면 드롭 취소
+        if (droppedItem && scene && scene.events) {
+          scene.events.emit('itemDropped', droppedItem);
+        }
+      }
+    }
+
     // 스테이지 완료 체크
     if (GameState.stage.killCount >= CONFIG.KILLS_PER_STAGE) {
       this.onStageComplete(scene);
     }
 
-    return { goldGained, expGained, leveled };
+    return { goldGained, expGained, leveled, droppedItem };
   },
 
   onStageComplete: function(scene) {

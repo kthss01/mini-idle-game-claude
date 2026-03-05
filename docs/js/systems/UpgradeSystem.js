@@ -41,6 +41,15 @@ var UpgradeSystem = {
     GameState.hero.critChance = base.critChance + u.critChance * perLv.critChance;
     GameState.hero.critMult = base.critMult;
 
+    // 장비 보너스 합산
+    if (typeof EquipmentSystem !== 'undefined') {
+      var eqStats = EquipmentSystem.getEquippedStats();
+      GameState.hero.maxHp     += eqStats.hp        || 0;
+      GameState.hero.atk       += eqStats.atk       || 0;
+      GameState.hero.def       += eqStats.def       || 0;
+      GameState.hero.critChance += eqStats.critChance || 0;
+    }
+
     // HP가 최대HP를 초과하지 않도록
     GameState.hero.hp = Math.min(GameState.hero.hp, GameState.hero.maxHp);
   },

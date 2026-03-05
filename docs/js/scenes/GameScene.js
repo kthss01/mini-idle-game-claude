@@ -33,6 +33,14 @@ class GameScene extends Phaser.Scene {
     // 스테이지 변경 이벤트 리스너
     this.events.on('stageChanged', this._onStageChanged, this);
 
+    // 장비 드롭 이벤트 리스너
+    this.events.on('itemDropped', function(item) {
+      var uiScene = this.scene.get('UIScene');
+      if (uiScene && uiScene.showDropToast) {
+        uiScene.showDropToast(item);
+      }
+    }, this);
+
     // 첫 렌더링
     this._updateHeroVisual();
   }
@@ -60,6 +68,8 @@ class GameScene extends Phaser.Scene {
         this._onMonsterAttack(ev);
       } else if (ev.type === 'heroDeath') {
         this._onHeroDeath();
+      } else if (ev.type === 'skillActivated') {
+        this._onSkillActivated(ev);
       }
     }
 
@@ -271,6 +281,47 @@ class GameScene extends Phaser.Scene {
   _onMonsterAttack(ev) {
     VFXManager.showDamageNumber(this, CONFIG.HERO_X, CONFIG.HERO_Y - 60, ev.damage, ev.isCrit);
     VFXManager.showHeroHit(this, this.heroSprite);
+  }
+
+  _onSkillActivated(ev) {
+    var mx = CONFIG.MONSTER_X;
+    var my = CONFIG.MONSTER_Y;
+
+    // 스킬별 색상 이펙트
+    VFXManager.showHitEffect(this, mx + randomBetween(-20, 20), my + randomBetween(-20, 20), ev.phaserColor);
+
+    if (ev.damage) {
+      VFXManager.showDamageNumber(this, mx, my - GameState.monster.size * 0.8, ev.damage, false);
+    }
+    if (ev.heal) {
+      // 힐 숫자 (영웅 위치)
+      VFXManager.showDamageNumber(this, CONFIG.HERO_X, CONFIG.HERO_Y - 80, ev.heal, false);
+    }
+
+    // 스킬 이름 텍스트 표시
+    var skillText = this.add.text(mx, my - GameState.monster.size - 30, ev.name, {
+      fontSize: '14px',
+      fontFamily: 'Arial, sans-serif',
+      color: ev.cssColor,
+      stroke: '#000',
+      strokeThickness: 3,
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(52);
+
+    this.tweens.add({
+      targets: skillText,
+      y: skillText.y - 30,
+      alpha: 0,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: function() { skillText.destroy(); }
+    });
+
+    // 몬스터 사망 처리 (이중 처리 방지)
+    if (ev.targetDead && !this.monsterIsDead) {
+      this.monsterIsDead = true;
+      this._onMonsterDead();
+    }
   }
 
   _onHeroDeath() {

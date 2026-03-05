@@ -65,6 +65,9 @@ var CONFIG = {
   // 자동 저장 간격 (ms)
   AUTO_SAVE_INTERVAL: 15000,
 
+  // 세이브 버전 (마이그레이션 관리)
+  SAVE_VERSION: 1,
+
   // 로컬 저장 키
   SAVE_KEY: 'idleRPG_v1_save',
 

@@ -4,11 +4,15 @@ class UIScene extends Phaser.Scene {
     super({ key: 'UIScene' });
     this.lastUpdateTime = 0;
     this.UPDATE_INTERVAL = 100; // 100ms마다 DOM 업데이트
+    this._skillPopupKey = null; // 현재 열린 스킬 팝업 키
   }
 
   create() {
     this._buildHUD();
+    this._buildSkillBar();
     this._buildUpgradePanel();
+    this._buildEquipmentPanel();
+    this._buildInventoryPanel();
     this._buildSettingsPanel();
     // 오프라인 팝업은 BootScene에서 동적 생성하므로 여기서는 생략
 
@@ -25,6 +29,8 @@ class UIScene extends Phaser.Scene {
     this._updateHPBars();
     this._updateStatBar();
     this._updateUpgradeButtons();
+    this._updateSkillBar();
+    this._updateEquipmentSlots();
   }
 
   // ===== HUD 빌드 =====
@@ -114,6 +120,159 @@ class UIScene extends Phaser.Scene {
     overlay.appendChild(lvBanner);
   }
 
+  // ===== 스킬 바 빌드 =====
+  _buildSkillBar() {
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var skillDefs = [
+      { key: 'powerStrike' },
+      { key: 'shield' },
+      { key: 'drain' }
+    ];
+
+    var bar = document.createElement('div');
+    bar.id = 'skill-bar';
+
+    skillDefs.forEach(function(def) {
+      var key = def.key;
+      var skill = SkillSystem.SKILLS[key];
+
+      var slot = document.createElement('div');
+      slot.className = 'skill-slot locked';
+      slot.id = 'skill-' + key;
+      slot.innerHTML = `
+        <div class="skill-icon">${skill.icon}</div>
+        <div class="skill-name">${skill.name}</div>
+        <div class="skill-cd-bar"><div class="skill-cd-fill" id="skill-cd-${key}"></div></div>
+        <div class="skill-level" id="skill-lv-${key}">Lv.${skill.unlockLevel} 해금</div>
+      `;
+
+      slot.onclick = function() {
+        self._openSkillPopup(key);
+      };
+
+      bar.appendChild(slot);
+    });
+
+    // 스킬 업그레이드 팝업
+    var popup = document.createElement('div');
+    popup.id = 'skill-popup';
+    popup.innerHTML = `
+      <button id="skill-popup-close">✕</button>
+      <div id="skill-popup-icon"></div>
+      <h3 id="skill-popup-name"></h3>
+      <div class="skill-popup-row"><span>현재 레벨</span><span id="skill-popup-lv"></span></div>
+      <div class="skill-popup-row"><span>현재 효과</span><span id="skill-popup-cur"></span></div>
+      <div class="skill-popup-row"><span>다음 레벨</span><span id="skill-popup-next"></span></div>
+      <div class="skill-popup-cost" id="skill-popup-cost"></div>
+      <button id="skill-popup-upgrade">업그레이드</button>
+    `;
+    overlay.appendChild(popup);
+
+    document.getElementById('skill-popup-close').onclick = function() {
+      popup.classList.remove('visible');
+      self._skillPopupKey = null;
+    };
+    document.getElementById('skill-popup-upgrade').onclick = function() {
+      if (self._skillPopupKey) {
+        if (SkillSystem.upgradeSkill(self._skillPopupKey)) {
+          self._refreshSkillPopup(self._skillPopupKey);
+          self._updateSkillBar();
+        }
+      }
+    };
+
+    overlay.appendChild(bar);
+  }
+
+  _openSkillPopup(key) {
+    this._skillPopupKey = key;
+    this._refreshSkillPopup(key);
+    document.getElementById('skill-popup').classList.add('visible');
+  }
+
+  _refreshSkillPopup(key) {
+    var skill = SkillSystem.SKILLS[key];
+    var skillState = GameState.skills[key];
+    var popup = document.getElementById('skill-popup');
+    if (!popup) return;
+
+    document.getElementById('skill-popup-icon').textContent = skill.icon;
+    document.getElementById('skill-popup-name').textContent = skill.name;
+    document.getElementById('skill-popup-lv').textContent =
+      skillState.level + ' / ' + skill.maxLevel;
+    document.getElementById('skill-popup-cur').textContent =
+      skillState.level > 0 ? SkillSystem.getCurrentDesc(key) : '(미강화)';
+
+    var isMaxLevel = skillState.level >= skill.maxLevel;
+    document.getElementById('skill-popup-next').textContent =
+      isMaxLevel ? '최대 레벨' : SkillSystem.getNextLevelDesc(key);
+
+    var costEl = document.getElementById('skill-popup-cost');
+    var upgradeBtn = document.getElementById('skill-popup-upgrade');
+
+    if (isMaxLevel) {
+      costEl.textContent = '최대 레벨 달성!';
+      upgradeBtn.disabled = true;
+    } else if (!skillState.unlocked) {
+      costEl.textContent = 'Lv.' + skill.unlockLevel + ' 해금';
+      upgradeBtn.disabled = true;
+    } else {
+      var cost = SkillSystem.getSkillCost(key);
+      costEl.textContent = '💰 ' + formatNumber(cost);
+      upgradeBtn.disabled = GameState.hero.gold < cost;
+    }
+  }
+
+  _updateSkillBar() {
+    if (typeof SkillSystem === 'undefined') return;
+    var keys = ['powerStrike', 'shield', 'drain'];
+
+    keys.forEach(function(key) {
+      var slot = document.getElementById('skill-' + key);
+      if (!slot) return;
+
+      var skillState = GameState.skills[key];
+      var skill = SkillSystem.SKILLS[key];
+      var lvEl = document.getElementById('skill-lv-' + key);
+      var fillEl = document.getElementById('skill-cd-' + key);
+
+      if (!skillState.unlocked) {
+        slot.className = 'skill-slot locked';
+        if (lvEl) lvEl.textContent = 'Lv.' + skill.unlockLevel + ' 해금';
+        if (fillEl) fillEl.style.width = '0%';
+      } else {
+        slot.className = 'skill-slot';
+        if (lvEl) lvEl.textContent = 'Lv.' + skillState.level;
+        if (fillEl) {
+          var cooldown = SkillSystem.getCooldown(key);
+          var pct = Math.min(100, skillState.timer / cooldown * 100);
+          fillEl.style.width = pct + '%';
+          // 방어막 활성 표시
+          if (key === 'shield' && GameState.shieldActive) {
+            fillEl.style.background = '#3498db';
+          } else {
+            fillEl.style.background = '';
+          }
+        }
+      }
+    });
+
+    // 열린 팝업 갱신
+    if (this._skillPopupKey) {
+      this._refreshSkillPopup(this._skillPopupKey);
+    }
+  }
+
+  // 스킬 발동 시 슬롯 강조 효과 (GameScene에서 호출 가능)
+  highlightSkillSlot(key) {
+    var slot = document.getElementById('skill-' + key);
+    if (!slot) return;
+    slot.classList.add('activating');
+    setTimeout(function() { slot.classList.remove('activating'); }, 400);
+  }
+
   // ===== 업그레이드 패널 빌드 =====
   _buildUpgradePanel() {
     var overlay = document.getElementById('ui-overlay');
@@ -147,6 +306,7 @@ class UIScene extends Phaser.Scene {
           this._updateUpgradeButtons();
           this._updateStatBar();
           this._updateHPBars();
+          this._updateEquipmentSlots();
         }
       }.bind(this);
 
@@ -154,6 +314,258 @@ class UIScene extends Phaser.Scene {
     }.bind(this));
 
     overlay.appendChild(panel);
+  }
+
+  // ===== 장비 슬롯 패널 빌드 =====
+  _buildEquipmentPanel() {
+    if (typeof EquipmentSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var slotDefs = [
+      { slot: 'weapon', icon: '⚔️' },
+      { slot: 'armor',  icon: '🛡️' },
+      { slot: 'ring',   icon: '💍' }
+    ];
+
+    var panel = document.createElement('div');
+    panel.id = 'equip-panel';
+
+    slotDefs.forEach(function(def) {
+      var slotEl = document.createElement('div');
+      slotEl.className = 'equip-slot';
+      slotEl.id = 'equip-' + def.slot;
+      slotEl.dataset.slot = def.slot;
+      slotEl.innerHTML = `<div class="equip-slot-icon">${def.icon}</div><div class="equip-slot-name">비어있음</div>`;
+
+      slotEl.onclick = function() {
+        self._openInventory(def.slot);
+      };
+
+      panel.appendChild(slotEl);
+    });
+
+    overlay.appendChild(panel);
+  }
+
+  _updateEquipmentSlots() {
+    if (typeof EquipmentSystem === 'undefined') return;
+
+    var slots = ['weapon', 'armor', 'ring'];
+    var gradeColors = EquipmentSystem.GRADE_COLORS;
+
+    slots.forEach(function(slot) {
+      var slotEl = document.getElementById('equip-' + slot);
+      if (!slotEl) return;
+
+      var item = GameState.equipment.equipped[slot];
+      var iconEl = slotEl.querySelector('.equip-slot-icon');
+      var nameEl = slotEl.querySelector('.equip-slot-name');
+      var slotIcons = { weapon: '⚔️', armor: '🛡️', ring: '💍' };
+
+      if (item) {
+        slotEl.style.borderColor = gradeColors[item.grade];
+        slotEl.style.boxShadow = '0 0 6px ' + gradeColors[item.grade] + '66';
+        if (iconEl) iconEl.textContent = slotIcons[slot];
+        if (nameEl) {
+          nameEl.textContent = item.name;
+          nameEl.style.color = gradeColors[item.grade];
+        }
+        // 강화 레벨 표시
+        if (item.level > 0) {
+          nameEl.textContent = '+' + item.level + ' ' + item.name;
+        }
+      } else {
+        slotEl.style.borderColor = '';
+        slotEl.style.boxShadow = '';
+        if (iconEl) iconEl.textContent = slotIcons[slot];
+        if (nameEl) {
+          nameEl.textContent = '비어있음';
+          nameEl.style.color = '';
+        }
+      }
+    });
+  }
+
+  // ===== 인벤토리 패널 빌드 =====
+  _buildInventoryPanel() {
+    if (typeof EquipmentSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var panel = document.createElement('div');
+    panel.id = 'inventory-panel';
+    panel.innerHTML = `
+      <div class="inv-header">
+        <h3>인벤토리</h3>
+        <button id="inventory-close">✕</button>
+      </div>
+      <div id="inventory-grid"></div>
+      <div id="item-detail">
+        <div id="item-detail-content">아이템을 선택하세요</div>
+        <div id="item-detail-actions"></div>
+      </div>
+    `;
+    overlay.appendChild(panel);
+
+    document.getElementById('inventory-close').onclick = function() {
+      panel.classList.remove('visible');
+      self._selectedItemId = null;
+    };
+  }
+
+  _openInventory(focusSlot) {
+    if (typeof EquipmentSystem === 'undefined') return;
+    var panel = document.getElementById('inventory-panel');
+    if (!panel) return;
+
+    this._invFocusSlot = focusSlot;
+    this._selectedItemId = null;
+    this._refreshInventory();
+    panel.classList.add('visible');
+  }
+
+  _refreshInventory() {
+    var self = this;
+    var grid = document.getElementById('inventory-grid');
+    var detailContent = document.getElementById('item-detail-content');
+    var detailActions = document.getElementById('item-detail-actions');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    var inv = GameState.equipment.inventory;
+    var gradeColors = EquipmentSystem.GRADE_COLORS;
+    var slotIcons = { weapon: '⚔️', armor: '🛡️', ring: '💍' };
+
+    // 인벤토리 아이템
+    inv.forEach(function(item) {
+      var cell = document.createElement('div');
+      cell.className = 'inv-cell';
+      cell.style.borderColor = gradeColors[item.grade];
+      cell.style.background = gradeColors[item.grade] + '22';
+      cell.innerHTML = `
+        <div class="inv-cell-icon">${slotIcons[item.slot]}</div>
+        <div class="inv-cell-name" style="color:${gradeColors[item.grade]}">${item.level > 0 ? '+' + item.level + ' ' : ''}${item.name}</div>
+      `;
+      cell.onclick = function() {
+        self._selectedItemId = item.id;
+        self._showItemDetail(item);
+        // 선택 강조
+        grid.querySelectorAll('.inv-cell').forEach(function(c) { c.classList.remove('selected'); });
+        cell.classList.add('selected');
+      };
+      grid.appendChild(cell);
+    });
+
+    // 빈 칸
+    var maxSlots = 20;
+    for (var i = inv.length; i < maxSlots; i++) {
+      var empty = document.createElement('div');
+      empty.className = 'inv-cell empty';
+      grid.appendChild(empty);
+    }
+
+    if (!self._selectedItemId) {
+      detailContent.textContent = '아이템을 선택하세요';
+      detailActions.innerHTML = '';
+    }
+  }
+
+  _showItemDetail(item) {
+    var self = this;
+    var detailContent = document.getElementById('item-detail-content');
+    var detailActions = document.getElementById('item-detail-actions');
+    if (!detailContent) return;
+
+    var gradeColors = EquipmentSystem.GRADE_COLORS;
+    var gradeNames = { common: '일반', rare: '희귀', hero: '영웅', legend: '전설' };
+    var stats = item.stats;
+    var statLines = [];
+    if (stats.atk)       statLines.push('ATK +' + stats.atk);
+    if (stats.def)       statLines.push('DEF +' + stats.def);
+    if (stats.hp)        statLines.push('HP +' + stats.hp);
+    if (stats.critChance) statLines.push('CRIT +' + Math.floor(stats.critChance * 100) + '%');
+    if (stats.goldBonus)  statLines.push('GOLD +' + Math.floor(stats.goldBonus * 100) + '%');
+
+    var enhanceCost = EquipmentSystem.getEnhanceCost(item);
+    var sellPrice   = EquipmentSystem.getSellPrice(item);
+
+    detailContent.innerHTML = `
+      <div style="color:${gradeColors[item.grade]};font-weight:700;">[${gradeNames[item.grade]}] ${item.level > 0 ? '+' + item.level + ' ' : ''}${item.name}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin:4px 0">${item.slot === 'weapon' ? '무기' : item.slot === 'armor' ? '방어구' : '반지'}</div>
+      <div style="font-size:12px;color:#4ecdc4">${statLines.join(' / ')}</div>
+    `;
+
+    detailActions.innerHTML = '';
+
+    // 장착 버튼
+    var equipBtn = document.createElement('button');
+    equipBtn.className = 'inv-action-btn';
+    equipBtn.textContent = '장착';
+    equipBtn.onclick = function() {
+      EquipmentSystem.equip(item);
+      UpgradeSystem.recalculateStats();
+      self._selectedItemId = null;
+      self._refreshInventory();
+      self._updateEquipmentSlots();
+      document.getElementById('item-detail-content').textContent = '아이템을 선택하세요';
+      document.getElementById('item-detail-actions').innerHTML = '';
+    };
+    detailActions.appendChild(equipBtn);
+
+    // 강화 버튼
+    if (item.level < 10) {
+      var enhanceBtn = document.createElement('button');
+      enhanceBtn.className = 'inv-action-btn';
+      enhanceBtn.textContent = '강화 💰' + formatNumber(enhanceCost);
+      enhanceBtn.disabled = GameState.hero.gold < enhanceCost;
+      enhanceBtn.onclick = function() {
+        if (EquipmentSystem.enhance(item.id)) {
+          UpgradeSystem.recalculateStats();
+          self._refreshInventory();
+          self._updateEquipmentSlots();
+          // 같은 아이템 다시 선택
+          var updated = GameState.equipment.inventory.find(function(i) { return i.id === item.id; });
+          if (updated) self._showItemDetail(updated);
+        }
+      };
+      detailActions.appendChild(enhanceBtn);
+    }
+
+    // 판매 버튼
+    var sellBtn = document.createElement('button');
+    sellBtn.className = 'inv-action-btn sell';
+    sellBtn.textContent = '판매 💰' + formatNumber(sellPrice);
+    sellBtn.onclick = function() {
+      EquipmentSystem.sell(item.id);
+      self._selectedItemId = null;
+      self._refreshInventory();
+      document.getElementById('item-detail-content').textContent = '아이템을 선택하세요';
+      document.getElementById('item-detail-actions').innerHTML = '';
+    };
+    detailActions.appendChild(sellBtn);
+  }
+
+  // 장비 드롭 토스트
+  showDropToast(item) {
+    var overlay = document.getElementById('ui-overlay');
+    var gradeColors = EquipmentSystem.GRADE_COLORS;
+    var gradeNames = { common: '일반', rare: '희귀', hero: '영웅', legend: '전설' };
+    var slotIcons = { weapon: '⚔️', armor: '🛡️', ring: '💍' };
+
+    var toast = document.createElement('div');
+    toast.className = 'drop-toast';
+    toast.style.borderColor = gradeColors[item.grade];
+    toast.style.color = gradeColors[item.grade];
+    toast.innerHTML = slotIcons[item.slot] + ' [' + gradeNames[item.grade] + '] ' + item.name + ' 획득!';
+    overlay.appendChild(toast);
+
+    // 트리거 (CSS transition용)
+    setTimeout(function() { toast.classList.add('visible'); }, 10);
+    setTimeout(function() {
+      toast.classList.remove('visible');
+      setTimeout(function() { toast.remove(); }, 400);
+    }, 3000);
   }
 
   // ===== 세팅 패널 빌드 =====
@@ -194,21 +606,6 @@ class UIScene extends Phaser.Scene {
         SaveSystem.resetSave();
       }
     };
-  }
-
-  // ===== 오프라인 팝업 빌드 =====
-  _buildOfflinePopup() {
-    var overlay = document.getElementById('ui-overlay');
-
-    var popup = document.createElement('div');
-    popup.id = 'offline-popup';
-    popup.innerHTML = `
-      <h2>오프라인 보상 🌙</h2>
-      <p>0분 동안 오프라인이었습니다.</p>
-      <div class="offline-amount">+0 💰</div>
-      <button>받기!</button>
-    `;
-    overlay.appendChild(popup);
   }
 
   // ===== UI 업데이트 =====
