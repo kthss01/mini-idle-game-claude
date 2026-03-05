@@ -246,14 +246,16 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 320px;
+  width: 340px;
+  max-height: 520px;
   background: rgba(10, 10, 20, 0.97);
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   z-index: 50;
   pointer-events: all;
   display: none;
+  overflow-y: auto;
 }
 
 #settings-panel.visible {
@@ -775,6 +777,600 @@ canvas {
 
 .inv-action-btn.sell:hover {
   background: rgba(231,76,60,0.25);
+}
+
+/* ===== 환생 버튼 ===== */
+#prestige-btn {
+  position: absolute;
+  top: 8px;
+  right: 52px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(167,139,250,0.4);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  z-index: 20;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#prestige-btn:hover:not(:disabled) {
+  background: rgba(167,139,250,0.2);
+  border-color: rgba(167,139,250,0.8);
+}
+
+/* ===== 영혼석 HUD 배지 ===== */
+.hud-souls-badge {
+  cursor: pointer;
+  border-color: rgba(167,139,250,0.4) !important;
+}
+
+.hud-souls-badge span {
+  color: #a78bfa !important;
+}
+
+.hud-souls-badge:hover {
+  background: rgba(167,139,250,0.15) !important;
+}
+
+/* ===== 환생 확인 모달 ===== */
+#prestige-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(167,139,250,0.5);
+  border-radius: 12px;
+  padding: 24px;
+  z-index: 70;
+  pointer-events: all;
+  display: none;
+  text-align: center;
+}
+
+#prestige-modal.visible {
+  display: block;
+}
+
+#prestige-modal h2 {
+  color: #a78bfa;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.prestige-info {
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.prestige-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  padding: 3px 0;
+}
+
+.prestige-warn {
+  font-size: 11px;
+  color: rgba(255,200,100,0.8);
+  background: rgba(255,160,0,0.08);
+  border: 1px solid rgba(255,160,0,0.2);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.prestige-modal-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.pm-btn-do {
+  flex: 1;
+  padding: 10px;
+  background: rgba(167,139,250,0.15);
+  border: 1px solid #a78bfa;
+  border-radius: 8px;
+  color: #a78bfa;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pm-btn-do:hover:not(:disabled) {
+  background: rgba(167,139,250,0.3);
+}
+
+.pm-btn-do:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pm-btn-cancel {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pm-btn-cancel:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* ===== 영혼석 상점 패널 ===== */
+#soul-shop-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 360px;
+  max-height: 480px;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(167,139,250,0.5);
+  border-radius: 12px;
+  padding: 20px;
+  z-index: 70;
+  pointer-events: all;
+  display: none;
+  overflow-y: auto;
+}
+
+#soul-shop-panel.visible {
+  display: block;
+}
+
+#soul-shop-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#soul-shop-panel h2 {
+  color: #a78bfa;
+  font-size: 17px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+#soul-shop-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: rgba(167,139,250,0.08);
+  border-radius: 6px;
+}
+
+#soul-buff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.buff-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.buff-card-icon {
+  font-size: 20px;
+}
+
+.buff-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.buff-card-level {
+  font-size: 10px;
+  color: #a78bfa;
+}
+
+.buff-card-desc {
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+
+.buff-buy-btn {
+  width: 100%;
+  padding: 5px 8px;
+  background: rgba(167,139,250,0.1);
+  border: 1px solid rgba(167,139,250,0.4);
+  border-radius: 5px;
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.buff-buy-btn.can-afford {
+  border-color: #a78bfa;
+}
+
+.buff-buy-btn:hover:not(:disabled) {
+  background: rgba(167,139,250,0.25);
+}
+
+.buff-buy-btn.max,
+.buff-buy-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ===== 설정 패널 탭 ===== */
+.settings-tabs-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.settings-tab {
+  flex: 1;
+  padding: 7px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-tab.active {
+  background: rgba(78,205,196,0.15);
+  border-color: #4ecdc4;
+  color: #4ecdc4;
+}
+
+/* 업적 탭 콘텐츠 */
+#achieve-progress-outer {
+  margin-bottom: 10px;
+}
+
+#achieve-progress-text {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  text-align: right;
+  margin-bottom: 3px;
+}
+
+#achieve-progress-bar-bg {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+#achieve-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ecdc4, #2ecc71);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+#achieve-filter-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.achieve-filter-btn {
+  padding: 3px 7px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: rgba(255,255,255,0.5);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.achieve-filter-btn.active {
+  background: rgba(78,205,196,0.15);
+  border-color: #4ecdc4;
+  color: #4ecdc4;
+}
+
+#achieve-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.achieve-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  opacity: 0.55;
+}
+
+.achieve-item.unlocked {
+  opacity: 1;
+  border-color: rgba(78,205,196,0.3);
+  background: rgba(78,205,196,0.05);
+}
+
+.achieve-item.secret {
+  border-color: rgba(167,139,250,0.2);
+}
+
+.achieve-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.achieve-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.achieve-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.achieve-cond {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  margin: 1px 0;
+}
+
+.achieve-reward {
+  font-size: 10px;
+  color: #ffd700;
+}
+
+/* ===== 업적 토스트 ===== */
+.achieve-toast {
+  position: absolute;
+  top: 46px;
+  right: 14px;
+  background: rgba(10, 10, 20, 0.95);
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  padding: 10px 14px;
+  pointer-events: none;
+  z-index: 85;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  min-width: 170px;
+  max-width: 220px;
+}
+
+.achieve-toast.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.achieve-toast-title {
+  font-size: 11px;
+  color: #ffd700;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.achieve-toast-name {
+  font-size: 13px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.achieve-toast-reward {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+}
+
+/* ===== 퀘스트 완료 토스트 ===== */
+.quest-complete-toast {
+  position: absolute;
+  bottom: 252px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid #2ecc71;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2ecc71;
+  pointer-events: none;
+  z-index: 80;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.quest-complete-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===== 퀘스트 사이드바 ===== */
+#quest-sidebar {
+  position: absolute;
+  right: 0;
+  top: 75px;
+  width: 178px;
+  background: rgba(0, 0, 0, 0.82);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px 0 0 8px;
+  z-index: 15;
+  pointer-events: all;
+  overflow: hidden;
+}
+
+.quest-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+
+#quest-toggle {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+#quest-toggle:hover {
+  color: #fff;
+}
+
+#quest-sidebar-body {
+  padding: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.quest-section-title {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+  margin: 6px 0 4px;
+}
+
+.quest-timer {
+  font-size: 10px;
+  color: #4ecdc4;
+  text-align: center;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quest-item {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 5px;
+  padding: 5px 6px;
+  margin-bottom: 4px;
+}
+
+.quest-item.quest-done {
+  border-color: rgba(46,204,113,0.3);
+}
+
+.quest-item-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 3px;
+}
+
+.quest-item-prog {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.quest-prog-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.quest-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ecdc4, #2ecc71);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.quest-prog-text {
+  font-size: 9px;
+  color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+  min-width: 32px;
+  text-align: right;
+}
+
+.quest-reward-text {
+  font-size: 9px;
+  color: #ffd700;
+}
+
+.quest-claim-btn {
+  display: block;
+  width: 100%;
+  margin: 3px 0;
+  padding: 3px;
+  background: rgba(46,204,113,0.15);
+  border: 1px solid #2ecc71;
+  border-radius: 4px;
+  color: #2ecc71;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.quest-claim-btn:hover {
+  background: rgba(46,204,113,0.3);
+}
+
+.quest-claimed-text {
+  font-size: 10px;
+  color: #2ecc71;
+  display: block;
+  text-align: center;
+  margin: 2px 0;
 }
 
 /* ===== 드롭 토스트 ===== */

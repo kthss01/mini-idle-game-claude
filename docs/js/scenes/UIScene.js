@@ -1,10 +1,18 @@
 // ===== UI 씬 (HUD + 패널 오버레이) =====
+
+// 전역 UIScene 인스턴스 (Achievement/Quest 시스템에서 접근용)
+var UISceneInstance = null;
+
 class UIScene extends Phaser.Scene {
   constructor() {
     super({ key: 'UIScene' });
     this.lastUpdateTime = 0;
-    this.UPDATE_INTERVAL = 100; // 100ms마다 DOM 업데이트
-    this._skillPopupKey = null; // 현재 열린 스킬 팝업 키
+    this.UPDATE_INTERVAL = 100;
+    this._skillPopupKey = null;
+    this._questSidebarOpen = true;
+    this._achieveFilter = 'all';
+    this._achieveToastQueue = [];
+    this._achieveToastShowing = false;
   }
 
   create() {
@@ -14,9 +22,10 @@ class UIScene extends Phaser.Scene {
     this._buildEquipmentPanel();
     this._buildInventoryPanel();
     this._buildSettingsPanel();
-    // 오프라인 팝업은 BootScene에서 동적 생성하므로 여기서는 생략
+    this._buildPrestigeUI();
+    this._buildQuestSidebar();
 
-    // 초기 UI 업데이트
+    UISceneInstance = this;
     this.onGameUpdate();
   }
 
@@ -31,11 +40,14 @@ class UIScene extends Phaser.Scene {
     this._updateUpgradeButtons();
     this._updateSkillBar();
     this._updateEquipmentSlots();
+    this._updateSoulBadge();
+    this._updateQuestSidebar();
   }
 
   // ===== HUD 빌드 =====
   _buildHUD() {
     var overlay = document.getElementById('ui-overlay');
+    var self = this;
 
     // 상단 HUD
     var hudTop = document.createElement('div');
@@ -44,8 +56,21 @@ class UIScene extends Phaser.Scene {
       <div class="hud-badge" id="hud-stage">스테이지 <span>1</span></div>
       <div class="hud-badge" id="hud-kills">처치 <span>0</span> / 10</div>
       <div class="hud-badge" id="hud-gold">💰 <span>0</span></div>
+      <div class="hud-badge hud-souls-badge" id="hud-souls" style="display:none;cursor:pointer;">💎 <span>0</span></div>
     `;
     overlay.appendChild(hudTop);
+
+    // 영혼석 배지 클릭 → 영혼석 상점
+    var soulsEl = document.getElementById('hud-souls');
+    if (soulsEl) {
+      soulsEl.onclick = function() {
+        var shop = document.getElementById('soul-shop-panel');
+        if (shop) {
+          self._refreshSoulShop();
+          shop.classList.add('visible');
+        }
+      };
+    }
 
     // HP 바
     var hpBars = document.createElement('div');
@@ -102,6 +127,16 @@ class UIScene extends Phaser.Scene {
       </div>
     `;
     overlay.appendChild(statBar);
+
+    // 환생 버튼 (💀)
+    var prestigeBtn = document.createElement('button');
+    prestigeBtn.id = 'prestige-btn';
+    prestigeBtn.innerHTML = '💀';
+    prestigeBtn.title = '환생 (스테이지 20 필요)';
+    prestigeBtn.onclick = function() {
+      self._openPrestigeConfirm();
+    };
+    overlay.appendChild(prestigeBtn);
 
     // 세팅 버튼
     var settingsBtn = document.createElement('button');
@@ -249,7 +284,6 @@ class UIScene extends Phaser.Scene {
           var cooldown = SkillSystem.getCooldown(key);
           var pct = Math.min(100, skillState.timer / cooldown * 100);
           fillEl.style.width = pct + '%';
-          // 방어막 활성 표시
           if (key === 'shield' && GameState.shieldActive) {
             fillEl.style.background = '#3498db';
           } else {
@@ -259,13 +293,11 @@ class UIScene extends Phaser.Scene {
       }
     });
 
-    // 열린 팝업 갱신
     if (this._skillPopupKey) {
       this._refreshSkillPopup(this._skillPopupKey);
     }
   }
 
-  // 스킬 발동 시 슬롯 강조 효과 (GameScene에서 호출 가능)
   highlightSkillSlot(key) {
     var slot = document.getElementById('skill-' + key);
     if (!slot) return;
@@ -302,7 +334,6 @@ class UIScene extends Phaser.Scene {
 
       btn.onclick = function() {
         if (UpgradeSystem.applyUpgrade(upg.key)) {
-          // 구매 성공 시 즉시 UI 업데이트
           this._updateUpgradeButtons();
           this._updateStatBar();
           this._updateHPBars();
@@ -368,12 +399,8 @@ class UIScene extends Phaser.Scene {
         slotEl.style.boxShadow = '0 0 6px ' + gradeColors[item.grade] + '66';
         if (iconEl) iconEl.textContent = slotIcons[slot];
         if (nameEl) {
-          nameEl.textContent = item.name;
+          nameEl.textContent = item.level > 0 ? '+' + item.level + ' ' + item.name : item.name;
           nameEl.style.color = gradeColors[item.grade];
-        }
-        // 강화 레벨 표시
-        if (item.level > 0) {
-          nameEl.textContent = '+' + item.level + ' ' + item.name;
         }
       } else {
         slotEl.style.borderColor = '';
@@ -437,7 +464,6 @@ class UIScene extends Phaser.Scene {
     var gradeColors = EquipmentSystem.GRADE_COLORS;
     var slotIcons = { weapon: '⚔️', armor: '🛡️', ring: '💍' };
 
-    // 인벤토리 아이템
     inv.forEach(function(item) {
       var cell = document.createElement('div');
       cell.className = 'inv-cell';
@@ -450,14 +476,12 @@ class UIScene extends Phaser.Scene {
       cell.onclick = function() {
         self._selectedItemId = item.id;
         self._showItemDetail(item);
-        // 선택 강조
         grid.querySelectorAll('.inv-cell').forEach(function(c) { c.classList.remove('selected'); });
         cell.classList.add('selected');
       };
       grid.appendChild(cell);
     });
 
-    // 빈 칸
     var maxSlots = 20;
     for (var i = inv.length; i < maxSlots; i++) {
       var empty = document.createElement('div');
@@ -466,8 +490,8 @@ class UIScene extends Phaser.Scene {
     }
 
     if (!self._selectedItemId) {
-      detailContent.textContent = '아이템을 선택하세요';
-      detailActions.innerHTML = '';
+      if (detailContent) detailContent.textContent = '아이템을 선택하세요';
+      if (detailActions) detailActions.innerHTML = '';
     }
   }
 
@@ -498,7 +522,6 @@ class UIScene extends Phaser.Scene {
 
     detailActions.innerHTML = '';
 
-    // 장착 버튼
     var equipBtn = document.createElement('button');
     equipBtn.className = 'inv-action-btn';
     equipBtn.textContent = '장착';
@@ -513,7 +536,6 @@ class UIScene extends Phaser.Scene {
     };
     detailActions.appendChild(equipBtn);
 
-    // 강화 버튼
     if (item.level < 10) {
       var enhanceBtn = document.createElement('button');
       enhanceBtn.className = 'inv-action-btn';
@@ -524,7 +546,6 @@ class UIScene extends Phaser.Scene {
           UpgradeSystem.recalculateStats();
           self._refreshInventory();
           self._updateEquipmentSlots();
-          // 같은 아이템 다시 선택
           var updated = GameState.equipment.inventory.find(function(i) { return i.id === item.id; });
           if (updated) self._showItemDetail(updated);
         }
@@ -532,7 +553,6 @@ class UIScene extends Phaser.Scene {
       detailActions.appendChild(enhanceBtn);
     }
 
-    // 판매 버튼
     var sellBtn = document.createElement('button');
     sellBtn.className = 'inv-action-btn sell';
     sellBtn.textContent = '판매 💰' + formatNumber(sellPrice);
@@ -546,7 +566,6 @@ class UIScene extends Phaser.Scene {
     detailActions.appendChild(sellBtn);
   }
 
-  // 장비 드롭 토스트
   showDropToast(item) {
     var overlay = document.getElementById('ui-overlay');
     var gradeColors = EquipmentSystem.GRADE_COLORS;
@@ -560,7 +579,6 @@ class UIScene extends Phaser.Scene {
     toast.innerHTML = slotIcons[item.slot] + ' [' + gradeNames[item.grade] + '] ' + item.name + ' 획득!';
     overlay.appendChild(toast);
 
-    // 트리거 (CSS transition용)
     setTimeout(function() { toast.classList.add('visible'); }, 10);
     setTimeout(function() {
       toast.classList.remove('visible');
@@ -568,32 +586,81 @@ class UIScene extends Phaser.Scene {
     }, 3000);
   }
 
-  // ===== 세팅 패널 빌드 =====
+  // ===== 세팅 패널 빌드 (탭: 설정 / 업적) =====
   _buildSettingsPanel() {
     var overlay = document.getElementById('ui-overlay');
+    var self = this;
 
     var panel = document.createElement('div');
     panel.id = 'settings-panel';
     panel.innerHTML = `
       <button id="settings-close">✕</button>
-      <h2>설정</h2>
-      <div class="settings-row">
-        <button class="settings-btn" id="btn-manual-save">💾 지금 저장</button>
-        <button class="settings-btn danger" id="btn-reset">🗑️ 데이터 초기화</button>
+      <div class="settings-tabs-row">
+        <button class="settings-tab active" id="stab-config">설정</button>
+        <button class="settings-tab" id="stab-achieve">업적</button>
       </div>
-      <div id="settings-info">
-        총 플레이: <span id="info-playtime">0분</span><br>
-        총 킬: <span id="info-kills">0</span><br>
-        총 골드: <span id="info-gold">0</span>
+      <div id="stab-pane-config">
+        <div class="settings-row">
+          <button class="settings-btn" id="btn-manual-save">💾 지금 저장</button>
+          <button class="settings-btn danger" id="btn-reset">🗑️ 데이터 초기화</button>
+        </div>
+        <div id="settings-info">
+          총 플레이: <span id="info-playtime">0분</span><br>
+          총 킬: <span id="info-kills">0</span><br>
+          총 골드: <span id="info-gold">0</span><br>
+          환생 횟수: <span id="info-prestige">0</span>회<br>
+          영혼석: <span id="info-souls">0</span>개
+        </div>
+      </div>
+      <div id="stab-pane-achieve" style="display:none">
+        <div id="achieve-progress-outer">
+          <div id="achieve-progress-text">0 / 30</div>
+          <div id="achieve-progress-bar-bg"><div id="achieve-progress-fill" style="width:0%"></div></div>
+        </div>
+        <div id="achieve-filter-row">
+          <button class="achieve-filter-btn active" data-cat="all">전체</button>
+          <button class="achieve-filter-btn" data-cat="kill">처치</button>
+          <button class="achieve-filter-btn" data-cat="gold">골드</button>
+          <button class="achieve-filter-btn" data-cat="stage">스테이지</button>
+          <button class="achieve-filter-btn" data-cat="other">기타</button>
+          <button class="achieve-filter-btn" data-cat="secret">비밀</button>
+        </div>
+        <div id="achieve-list"></div>
       </div>
     `;
     overlay.appendChild(panel);
 
-    // 이벤트 연결
+    // 닫기 버튼
     document.getElementById('settings-close').onclick = function() {
       panel.classList.remove('visible');
     };
 
+    // 탭 전환
+    document.getElementById('stab-config').onclick = function() {
+      document.getElementById('stab-config').classList.add('active');
+      document.getElementById('stab-achieve').classList.remove('active');
+      document.getElementById('stab-pane-config').style.display = '';
+      document.getElementById('stab-pane-achieve').style.display = 'none';
+    };
+    document.getElementById('stab-achieve').onclick = function() {
+      document.getElementById('stab-achieve').classList.add('active');
+      document.getElementById('stab-config').classList.remove('active');
+      document.getElementById('stab-pane-config').style.display = 'none';
+      document.getElementById('stab-pane-achieve').style.display = '';
+      self._refreshAchievements(self._achieveFilter);
+    };
+
+    // 카테고리 필터
+    panel.querySelectorAll('.achieve-filter-btn').forEach(function(btn) {
+      btn.onclick = function() {
+        panel.querySelectorAll('.achieve-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        self._achieveFilter = btn.dataset.cat;
+        self._refreshAchievements(self._achieveFilter);
+      };
+    });
+
+    // 저장 / 초기화
     document.getElementById('btn-manual-save').onclick = function() {
       SaveSystem.save();
       var btn = document.getElementById('btn-manual-save');
@@ -608,6 +675,385 @@ class UIScene extends Phaser.Scene {
     };
   }
 
+  _refreshAchievements(filter) {
+    if (typeof AchievementSystem === 'undefined') return;
+    var list = document.getElementById('achieve-list');
+    if (!list) return;
+
+    var progress = AchievementSystem.getProgress();
+    var fillEl = document.getElementById('achieve-progress-fill');
+    var textEl = document.getElementById('achieve-progress-text');
+    if (fillEl) fillEl.style.width = (progress.unlocked / progress.total * 100) + '%';
+    if (textEl) textEl.textContent = progress.unlocked + ' / ' + progress.total;
+
+    list.innerHTML = '';
+    var achievements = AchievementSystem.ACHIEVEMENTS;
+    for (var i = 0; i < achievements.length; i++) {
+      var ach = achievements[i];
+      if (filter !== 'all' && ach.cat !== filter) continue;
+
+      var isUnlocked = GameState.achievements.unlocked.indexOf(ach.id) >= 0;
+      var isSecret = ach.secret && !isUnlocked;
+
+      var item = document.createElement('div');
+      item.className = 'achieve-item' + (isUnlocked ? ' unlocked' : '') + (isSecret ? ' secret' : '');
+
+      var rewardText = this._getRewardText(ach.reward);
+      item.innerHTML = `
+        <span class="achieve-icon">${isUnlocked ? '✅' : (isSecret ? '🔒' : '🔒')}</span>
+        <div class="achieve-info">
+          <div class="achieve-name">${isSecret ? '???' : ach.name}</div>
+          <div class="achieve-cond">${isSecret ? '???' : ach.cond}</div>
+          <div class="achieve-reward">${rewardText}</div>
+        </div>
+      `;
+      list.appendChild(item);
+    }
+  }
+
+  _getRewardText(reward) {
+    if (!reward) return '';
+    var parts = [];
+    if (reward.atk)         parts.push('ATK +' + reward.atk);
+    if (reward.def)         parts.push('DEF +' + reward.def);
+    if (reward.maxHp)       parts.push('MaxHP +' + reward.maxHp);
+    if (reward.spd)         parts.push('SPD +' + reward.spd);
+    if (reward.critPct)     parts.push('CRIT +' + reward.critPct + '%');
+    if (reward.goldPct)     parts.push('골드 +' + reward.goldPct + '%');
+    if (reward.expPct)      parts.push('EXP +' + reward.expPct + '%');
+    if (reward.statPct)     parts.push('전체 스탯 +' + reward.statPct + '%');
+    if (reward.cooldownPct) parts.push('쿨타임 -' + reward.cooldownPct + '%');
+    if (reward.soulStones)  parts.push('💎 +' + reward.soulStones);
+    return parts.length ? '보상: ' + parts.join(', ') : '';
+  }
+
+  // ===== 프레스티지 UI =====
+  _buildPrestigeUI() {
+    if (typeof PrestigeSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    // 환생 확인 모달
+    var confirmModal = document.createElement('div');
+    confirmModal.id = 'prestige-modal';
+    confirmModal.innerHTML = `
+      <h2>💀 환생</h2>
+      <div class="prestige-info">
+        <div class="prestige-row"><span>현재 스테이지</span><span id="pm-stage">1</span></div>
+        <div class="prestige-row"><span>획득 영혼석</span><span id="pm-stones" style="color:#a78bfa">💎 0개</span></div>
+      </div>
+      <div class="prestige-warn">
+        ⚠️ 초기화: 레벨, 골드, 업그레이드, 스킬, 장비<br>
+        유지: 영혼석, 영구 버프, 업적
+      </div>
+      <div class="prestige-modal-btns">
+        <button id="pm-confirm" class="pm-btn-do">환생하기</button>
+        <button id="pm-cancel" class="pm-btn-cancel">취소</button>
+      </div>
+    `;
+    overlay.appendChild(confirmModal);
+
+    document.getElementById('pm-cancel').onclick = function() {
+      confirmModal.classList.remove('visible');
+    };
+    document.getElementById('pm-confirm').onclick = function() {
+      if (PrestigeSystem.doPrestige()) {
+        confirmModal.classList.remove('visible');
+        // 게임 씬에 스테이지 변경 알림 (배경 업데이트)
+        var gameScene = self.scene.get ? self.scene.get('GameScene') : null;
+        if (gameScene) {
+          gameScene._updateBackground && gameScene._updateBackground();
+          MonsterSystem.spawnMonster();
+          gameScene._createMonster && gameScene._createMonster();
+          if (typeof CombatSystem !== 'undefined') {
+            CombatSystem.heroAttackTimer = 0;
+            CombatSystem.monsterAttackTimer = 0;
+          }
+        }
+        self._updateSoulBadge();
+      }
+    };
+
+    // 영혼석 상점 패널
+    var shopPanel = document.createElement('div');
+    shopPanel.id = 'soul-shop-panel';
+    shopPanel.innerHTML = `
+      <button id="soul-shop-close">✕</button>
+      <h2>💎 영혼석 상점</h2>
+      <div id="soul-shop-header">
+        <span id="shop-soul-count">💎 0개</span>
+        <span id="shop-prestige-count">환생 0회</span>
+      </div>
+      <div id="soul-buff-grid"></div>
+    `;
+    overlay.appendChild(shopPanel);
+
+    document.getElementById('soul-shop-close').onclick = function() {
+      shopPanel.classList.remove('visible');
+    };
+  }
+
+  _openPrestigeConfirm() {
+    if (typeof PrestigeSystem === 'undefined') return;
+    var modal = document.getElementById('prestige-modal');
+    if (!modal) return;
+
+    var stageEl = document.getElementById('pm-stage');
+    var stonesEl = document.getElementById('pm-stones');
+    if (stageEl) stageEl.textContent = GameState.stage.current;
+    if (stonesEl) stonesEl.textContent = '💎 ' + PrestigeSystem.getPrestigeReward() + '개';
+
+    var confirmBtn = document.getElementById('pm-confirm');
+    if (confirmBtn) {
+      var canDo = PrestigeSystem.canPrestige();
+      confirmBtn.disabled = !canDo;
+      confirmBtn.title = canDo ? '' : '스테이지 20 이상 필요';
+    }
+
+    modal.classList.add('visible');
+  }
+
+  _refreshSoulShop() {
+    if (typeof PrestigeSystem === 'undefined') return;
+    var self = this;
+    var grid = document.getElementById('soul-buff-grid');
+    var countEl = document.getElementById('shop-soul-count');
+    var prestigeEl = document.getElementById('shop-prestige-count');
+    if (!grid) return;
+
+    if (countEl) countEl.textContent = '💎 ' + (GameState.prestige.soulStones || 0) + '개';
+    if (prestigeEl) prestigeEl.textContent = '환생 ' + (GameState.prestige.count || 0) + '회';
+
+    grid.innerHTML = '';
+    var keys = PrestigeSystem.BUFF_KEYS;
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var def = PrestigeSystem.BUFF_DEFS[key];
+      var level = GameState.prestige.buffs[key] || 0;
+      var isMax = level >= def.maxLevel;
+      var cost = PrestigeSystem.getBuffCost(key);
+      var canAfford = GameState.prestige.soulStones >= cost;
+
+      var card = document.createElement('div');
+      card.className = 'buff-card';
+
+      card.innerHTML = `
+        <div class="buff-card-icon">${def.icon}</div>
+        <div class="buff-card-name">${def.name}</div>
+        <div class="buff-card-level">Lv.${level} / ${def.maxLevel}</div>
+        <div class="buff-card-desc">${def.desc}</div>
+        <button class="buff-buy-btn ${isMax ? 'max' : (canAfford ? 'can-afford' : '')}"
+          data-key="${key}" ${isMax ? 'disabled' : ''}>
+          ${isMax ? 'MAX' : '💎 ' + cost}
+        </button>
+      `;
+
+      var btn = card.querySelector('.buff-buy-btn');
+      if (btn && !isMax) {
+        btn.onclick = function() {
+          var k = this.dataset.key;
+          if (PrestigeSystem.buyBuff(k)) {
+            self._refreshSoulShop();
+            self._updateSoulBadge();
+          }
+        };
+      }
+
+      grid.appendChild(card);
+    }
+  }
+
+  _updateSoulBadge() {
+    var soulsEl = document.getElementById('hud-souls');
+    var prestigeBtn = document.getElementById('prestige-btn');
+
+    if (soulsEl && GameState.prestige) {
+      if (GameState.prestige.count > 0) {
+        soulsEl.style.display = '';
+        var span = soulsEl.querySelector('span');
+        if (span) span.textContent = GameState.prestige.soulStones;
+      }
+    }
+
+    if (prestigeBtn && typeof PrestigeSystem !== 'undefined') {
+      var canPrestige = PrestigeSystem.canPrestige();
+      prestigeBtn.disabled = false;
+      prestigeBtn.style.opacity = canPrestige ? '1' : '0.5';
+      prestigeBtn.title = canPrestige ? '환생 가능!' : '환생 (스테이지 20 필요)';
+    }
+  }
+
+  // ===== 업적 토스트 =====
+  showAchievementToast(ach) {
+    this._achieveToastQueue.push(ach);
+    if (!this._achieveToastShowing) {
+      this._showNextAchievementToast();
+    }
+  }
+
+  _showNextAchievementToast() {
+    if (this._achieveToastQueue.length === 0) {
+      this._achieveToastShowing = false;
+      return;
+    }
+    this._achieveToastShowing = true;
+    var ach = this._achieveToastQueue.shift();
+    var overlay = document.getElementById('ui-overlay');
+
+    var toast = document.createElement('div');
+    toast.className = 'achieve-toast';
+    var rewardText = this._getRewardText(ach.reward);
+    toast.innerHTML = `
+      <div class="achieve-toast-title">🏆 업적 달성!</div>
+      <div class="achieve-toast-name">${ach.name}</div>
+      <div class="achieve-toast-reward">${rewardText}</div>
+    `;
+    overlay.appendChild(toast);
+
+    var self = this;
+    setTimeout(function() { toast.classList.add('visible'); }, 10);
+    setTimeout(function() {
+      toast.classList.remove('visible');
+      setTimeout(function() {
+        toast.remove();
+        self._showNextAchievementToast();
+      }, 400);
+    }, 4000);
+  }
+
+  // ===== 퀘스트 완료 알림 =====
+  showQuestComplete(quest) {
+    var overlay = document.getElementById('ui-overlay');
+    var rewardText = quest.reward === 'gold'
+      ? '💰 ' + formatNumber(quest.rewardValue)
+      : '✨ EXP +' + formatNumber(quest.rewardValue);
+
+    var toast = document.createElement('div');
+    toast.className = 'quest-complete-toast';
+    toast.innerHTML = '✅ 퀘스트 완료! ' + rewardText;
+    overlay.appendChild(toast);
+
+    setTimeout(function() { toast.classList.add('visible'); }, 10);
+    setTimeout(function() {
+      toast.classList.remove('visible');
+      setTimeout(function() { toast.remove(); }, 400);
+    }, 2500);
+  }
+
+  // ===== 퀘스트 사이드바 =====
+  _buildQuestSidebar() {
+    if (typeof QuestSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var sidebar = document.createElement('div');
+    sidebar.id = 'quest-sidebar';
+
+    sidebar.innerHTML = `
+      <div class="quest-sidebar-header">
+        <span>퀘스트</span>
+        <button id="quest-toggle">◀</button>
+      </div>
+      <div id="quest-sidebar-body">
+        <div class="quest-section-title">─ 일일 퀘스트 ─</div>
+        <div id="daily-reset-timer" class="quest-timer">00:00:00</div>
+        <div id="daily-quest-list"></div>
+        <div class="quest-section-title">─ 진행 중 ─</div>
+        <div id="active-quest-list"></div>
+      </div>
+    `;
+    overlay.appendChild(sidebar);
+
+    document.getElementById('quest-toggle').onclick = function() {
+      self._questSidebarOpen = !self._questSidebarOpen;
+      var body = document.getElementById('quest-sidebar-body');
+      var toggleBtn = document.getElementById('quest-toggle');
+      if (self._questSidebarOpen) {
+        body.style.display = '';
+        sidebar.style.width = '178px';
+        toggleBtn.textContent = '◀';
+      } else {
+        body.style.display = 'none';
+        sidebar.style.width = '32px';
+        toggleBtn.textContent = '▶';
+      }
+    };
+  }
+
+  _updateQuestSidebar() {
+    if (typeof QuestSystem === 'undefined') return;
+    if (!this._questSidebarOpen) return;
+
+    // 일일 리셋 타이머
+    var timerEl = document.getElementById('daily-reset-timer');
+    if (timerEl) timerEl.textContent = QuestSystem.getTimeUntilReset();
+
+    // 일일 퀘스트
+    var dailyList = document.getElementById('daily-quest-list');
+    if (dailyList) {
+      dailyList.innerHTML = '';
+      var self = this;
+      var daily = GameState.quests.daily || [];
+      daily.forEach(function(dq) {
+        var item = document.createElement('div');
+        item.className = 'quest-item' + (dq.completed ? ' quest-done' : '');
+        var pct = dq.target > 0 ? Math.min(100, dq.current / dq.target * 100) : 0;
+        var defItem = QuestSystem.DAILY_DEFS.find(function(d) { return d.id === dq.id; });
+        var rewardText = defItem ? '💰' + formatNumber(defItem.reward.gold) + ' + 💎' + defItem.reward.soulStone : '';
+        item.innerHTML = `
+          <div class="quest-item-name">${dq.name}</div>
+          <div class="quest-item-prog">
+            <div class="quest-prog-bar"><div class="quest-prog-fill" style="width:${pct}%"></div></div>
+            <span class="quest-prog-text">${dq.current}/${dq.target}</span>
+          </div>
+          ${dq.completed && !dq.claimed ? '<button class="quest-claim-btn" data-id="' + dq.id + '">수령</button>' : ''}
+          ${dq.claimed ? '<span class="quest-claimed-text">✅</span>' : ''}
+          <div class="quest-reward-text">${rewardText}</div>
+        `;
+        var claimBtn = item.querySelector('.quest-claim-btn');
+        if (claimBtn) {
+          claimBtn.onclick = function() {
+            var id = this.dataset.id;
+            if (QuestSystem.claimDaily(id)) {
+              self._updateQuestSidebar();
+              self._updateHUD();
+            }
+          };
+        }
+        dailyList.appendChild(item);
+      });
+    }
+
+    // 일반 퀘스트
+    var activeList = document.getElementById('active-quest-list');
+    if (activeList) {
+      activeList.innerHTML = '';
+      var active = GameState.quests.active || [];
+      var typeNames = {
+        kill: '몬스터 처치', killBoss: '보스 처치',
+        stage: '스테이지 진행', gold: '골드 모으기',
+        upgrade: '업그레이드', crit: '크리티컬'
+      };
+      active.forEach(function(q) {
+        var item = document.createElement('div');
+        item.className = 'quest-item' + (q.completed ? ' quest-done' : '');
+        var pct = q.target > 0 ? Math.min(100, q.current / q.target * 100) : 0;
+        var rewardText = q.reward === 'gold'
+          ? '💰 ' + formatNumber(q.rewardValue)
+          : '✨ EXP';
+        item.innerHTML = `
+          <div class="quest-item-name">${typeNames[q.type] || q.type}</div>
+          <div class="quest-item-prog">
+            <div class="quest-prog-bar"><div class="quest-prog-fill" style="width:${pct}%"></div></div>
+            <span class="quest-prog-text">${formatNumber(q.current)}/${formatNumber(q.target)}</span>
+          </div>
+          <div class="quest-reward-text">${rewardText}</div>
+        `;
+        activeList.appendChild(item);
+      });
+    }
+  }
+
   // ===== UI 업데이트 =====
   _updateHUD() {
     var stageEl = document.querySelector('#hud-stage span');
@@ -620,13 +1066,11 @@ class UIScene extends Phaser.Scene {
   }
 
   _updateHPBars() {
-    // 영웅 HP
     var heroHpFill = document.getElementById('hero-hp-fill');
     var heroHpText = document.getElementById('hero-hp-text');
     if (heroHpFill) {
       var heroPct = clamp(GameState.hero.hp / GameState.hero.maxHp * 100, 0, 100);
       heroHpFill.style.width = heroPct + '%';
-      // HP에 따라 색상 변화
       if (heroPct > 50) {
         heroHpFill.style.background = 'linear-gradient(90deg, #2ecc71, #27ae60)';
       } else if (heroPct > 25) {
@@ -639,7 +1083,6 @@ class UIScene extends Phaser.Scene {
       heroHpText.textContent = Math.ceil(GameState.hero.hp) + ' / ' + GameState.hero.maxHp;
     }
 
-    // 몬스터 HP
     var monHpFill = document.getElementById('monster-hp-fill');
     var monHpText = document.getElementById('monster-hp-text');
     var monName = document.getElementById('monster-name-hud');
@@ -681,12 +1124,13 @@ class UIScene extends Phaser.Scene {
     var infoPlaytime = document.getElementById('info-playtime');
     var infoKills = document.getElementById('info-kills');
     var infoGold = document.getElementById('info-gold');
-    if (infoPlaytime) {
-      var mins = Math.floor(GameState.meta.playTime / 60);
-      infoPlaytime.textContent = mins + '분';
-    }
+    var infoPrestige = document.getElementById('info-prestige');
+    var infoSouls = document.getElementById('info-souls');
+    if (infoPlaytime) infoPlaytime.textContent = Math.floor(GameState.meta.playTime / 60) + '분';
     if (infoKills) infoKills.textContent = formatNumber(GameState.meta.totalKills);
     if (infoGold) infoGold.textContent = formatNumber(GameState.meta.totalGold);
+    if (infoPrestige && GameState.prestige) infoPrestige.textContent = GameState.prestige.count;
+    if (infoSouls && GameState.prestige) infoSouls.textContent = GameState.prestige.soulStones;
   }
 
   _updateUpgradeButtons() {

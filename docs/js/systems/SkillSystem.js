@@ -57,7 +57,11 @@ var SkillSystem = {
   getCooldown: function(key) {
     var skill = this.SKILLS[key];
     var level = GameState.skills[key].level;
-    return Math.max(2000, skill.baseCooldown - level * skill.cooldownReducPerLevel);
+    var base = Math.max(2000, skill.baseCooldown - level * skill.cooldownReducPerLevel);
+    if (typeof AchievementSystem !== 'undefined') {
+      base = Math.floor(base * AchievementSystem.getBonusMultipliers().cooldown);
+    }
+    return Math.max(500, base);
   },
 
   getSkillCost: function(key) {
@@ -84,6 +88,10 @@ var SkillSystem = {
     if (GameState.hero.gold < cost) return false;
     GameState.hero.gold -= cost;
     skillState.level++;
+    // 스킬 마스터 업적 체크
+    if (typeof AchievementSystem !== 'undefined') {
+      AchievementSystem.check('skillMax', skillState.level);
+    }
     return true;
   },
 

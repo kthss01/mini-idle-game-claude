@@ -35,9 +35,30 @@ var SaveSystem = {
         equipment: GameState.equipment ? {
           equipped: GameState.equipment.equipped,
           inventory: GameState.equipment.inventory
+        } : null,
+        prestige: GameState.prestige ? {
+          count: GameState.prestige.count,
+          soulStones: GameState.prestige.soulStones,
+          totalSoulStones: GameState.prestige.totalSoulStones,
+          buffs: Object.assign({}, GameState.prestige.buffs)
+        } : null,
+        achievements: GameState.achievements ? {
+          unlocked: GameState.achievements.unlocked.slice(),
+          stats: Object.assign({}, GameState.achievements.stats)
+        } : null,
+        quests: GameState.quests ? {
+          active: GameState.quests.active.slice(),
+          daily: GameState.quests.daily.slice(),
+          lastDailyReset: GameState.quests.lastDailyReset,
+          totalCompleted: GameState.quests.totalCompleted
         } : null
       };
       localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saveData));
+
+      // 플레이 타임 업적 체크
+      if (typeof AchievementSystem !== 'undefined') {
+        AchievementSystem.check('playTime', GameState.meta.playTime);
+      }
     } catch (e) {
       console.warn('저장 실패:', e);
     }
@@ -74,6 +95,27 @@ var SaveSystem = {
       saveData.version = 1;
     }
 
+    // v1 → v2: prestige, achievements, quests 필드 추가
+    if (saveData.version < 2) {
+      saveData.prestige = saveData.prestige || {
+        count: 0,
+        soulStones: 0,
+        totalSoulStones: 0,
+        buffs: { permAtk: 0, permHp: 0, permGold: 0, permExp: 0, permOffline: 0, fastStart: 0 }
+      };
+      saveData.achievements = saveData.achievements || {
+        unlocked: [],
+        stats: { bossKills: 0, totalGoldSpent: 0, deaths: 0, consecutiveCrits: 0 }
+      };
+      saveData.quests = saveData.quests || {
+        active: [],
+        daily: [],
+        lastDailyReset: 0,
+        totalCompleted: 0
+      };
+      saveData.version = 2;
+    }
+
     return saveData;
   },
 
@@ -98,16 +140,44 @@ var SaveSystem = {
     GameState.upgrades.critChance = u.critChance || 0;
     GameState.upgrades.goldBonus = u.goldBonus || 0;
 
-    // 스탯 재계산
+    // prestige 복원
+    if (GameState.prestige && saveData.prestige) {
+      var p = saveData.prestige;
+      GameState.prestige.count = p.count || 0;
+      GameState.prestige.soulStones = p.soulStones || 0;
+      GameState.prestige.totalSoulStones = p.totalSoulStones || 0;
+      if (p.buffs) {
+        GameState.prestige.buffs.permAtk     = p.buffs.permAtk     || 0;
+        GameState.prestige.buffs.permHp      = p.buffs.permHp      || 0;
+        GameState.prestige.buffs.permGold    = p.buffs.permGold    || 0;
+        GameState.prestige.buffs.permExp     = p.buffs.permExp     || 0;
+        GameState.prestige.buffs.permOffline = p.buffs.permOffline || 0;
+        GameState.prestige.buffs.fastStart   = p.buffs.fastStart   || 0;
+      }
+    }
+
+    // achievements 복원
+    if (GameState.achievements && saveData.achievements) {
+      var ac = saveData.achievements;
+      GameState.achievements.unlocked = ac.unlocked || [];
+      if (ac.stats) {
+        GameState.achievements.stats.bossKills       = ac.stats.bossKills       || 0;
+        GameState.achievements.stats.totalGoldSpent  = ac.stats.totalGoldSpent  || 0;
+        GameState.achievements.stats.deaths          = ac.stats.deaths          || 0;
+        GameState.achievements.stats.consecutiveCrits= ac.stats.consecutiveCrits|| 0;
+      }
+    }
+
+    // 스탯 재계산 (prestige/achievement 반영)
     UpgradeSystem.recalculateStats();
 
-    // HP는 최대HP로 복원 (오프라인 중 회복)
+    // HP는 최대HP로 복원
     GameState.hero.hp = GameState.hero.maxHp;
 
     // stage 복원
     var s = saveData.stage || {};
     GameState.stage.current = s.current || 1;
-    GameState.stage.killCount = 0; // 킬카운트는 리셋
+    GameState.stage.killCount = 0;
 
     // meta 복원
     var m = saveData.meta || {};
@@ -135,8 +205,16 @@ var SaveSystem = {
       var eq = saveData.equipment;
       GameState.equipment.equipped  = eq.equipped  || { weapon: null, armor: null, ring: null };
       GameState.equipment.inventory = eq.inventory || [];
-      // 장비 스탯 재반영
       UpgradeSystem.recalculateStats();
+    }
+
+    // quests 복원 (checkDailyReset에서 처리)
+    if (GameState.quests && saveData.quests) {
+      var qd = saveData.quests;
+      GameState.quests.active        = qd.active        || [];
+      GameState.quests.daily         = qd.daily         || [];
+      GameState.quests.lastDailyReset= qd.lastDailyReset|| 0;
+      GameState.quests.totalCompleted= qd.totalCompleted || 0;
     }
   },
 
@@ -145,17 +223,23 @@ var SaveSystem = {
     if (!lastSave) return 0;
 
     var now = Date.now();
-    var elapsed = (now - lastSave) / 1000; // 초 단위
+    var elapsed = (now - lastSave) / 1000;
 
     // 최대 8시간 캡
     var maxSeconds = CONFIG.OFFLINE_MAX_HOURS * 3600;
     elapsed = Math.min(elapsed, maxSeconds);
 
-    if (elapsed < 5) return 0; // 5초 미만은 무시
+    if (elapsed < 5) return 0;
 
     var stage = GameState.stage.current;
     var goldBonus = 1 + GameState.upgrades.goldBonus * CONFIG.UPGRADE_STAT_PER_LEVEL.goldBonus;
     var goldPerSec = CONFIG.OFFLINE_GOLD_PER_SECOND_BASE * stage * goldBonus;
+
+    // 프레스티지 오프라인 배율
+    if (typeof PrestigeSystem !== 'undefined') {
+      goldPerSec *= PrestigeSystem.getMultipliers().offline;
+    }
+
     return Math.floor(elapsed * goldPerSec);
   },
 

@@ -43,6 +43,24 @@ var CombatSystem = {
       );
 
       GameState.monster.hp = Math.max(0, GameState.monster.hp - heroResult.damage);
+
+      // 연속 크리티컬 추적 (비밀 업적 + 퀘스트)
+      if (heroResult.isCrit) {
+        if (GameState.achievements) {
+          GameState.achievements.stats.consecutiveCrits++;
+          if (typeof AchievementSystem !== 'undefined') {
+            AchievementSystem.check('consecCrit', GameState.achievements.stats.consecutiveCrits);
+          }
+        }
+        if (typeof QuestSystem !== 'undefined') {
+          QuestSystem.updateProgress('crit', 1);
+        }
+      } else {
+        if (GameState.achievements) {
+          GameState.achievements.stats.consecutiveCrits = 0;
+        }
+      }
+
       events.push({
         type: 'heroAttack',
         damage: heroResult.damage,
@@ -79,6 +97,13 @@ var CombatSystem = {
       // 영웅 사망 처리 (HP가 0이 되면 회복)
       if (GameState.hero.hp <= 0) {
         GameState.hero.hp = Math.floor(GameState.hero.maxHp * 0.3);
+        // 사망 횟수 추적 (비밀 업적)
+        if (GameState.achievements) {
+          GameState.achievements.stats.deaths++;
+          if (typeof AchievementSystem !== 'undefined') {
+            AchievementSystem.check('deaths', GameState.achievements.stats.deaths);
+          }
+        }
         events.push({ type: 'heroDeath' });
       }
     }

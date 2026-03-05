@@ -37,6 +37,11 @@ class BootScene extends Phaser.Scene {
       GameState.hero.hp = GameState.hero.maxHp;
     }
 
+    // 퀘스트 일일 리셋 체크 & 초기화
+    if (typeof QuestSystem !== 'undefined') {
+      QuestSystem.checkDailyReset();
+    }
+
     // 오프라인 보상이 있으면 팝업 표시 후 게임 씬으로 이동
     if (offlineGold > 0) {
       this.showOfflinePopup(offlineGold, function() {
