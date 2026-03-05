@@ -90,6 +90,15 @@ var UpgradeSystem = {
       GameState.hero.maxHp = Math.floor(GameState.hero.maxHp * prestMult.hp);
     }
 
+    // 펫 스탯 배율
+    if (typeof PetSystem !== 'undefined') {
+      var petStats = PetSystem.getPetStats();
+      if (petStats.atk)        GameState.hero.atk        = Math.floor(GameState.hero.atk        * (1 + petStats.atk));
+      if (petStats.hp)         GameState.hero.maxHp      = Math.floor(GameState.hero.maxHp      * (1 + petStats.hp));
+      if (petStats.def)        GameState.hero.def        = Math.floor(GameState.hero.def        * (1 + petStats.def));
+      if (petStats.critChance) GameState.hero.critChance += petStats.critChance;
+    }
+
     // HP가 최대HP를 초과하지 않도록
     GameState.hero.hp = Math.min(GameState.hero.hp, GameState.hero.maxHp);
 

@@ -80,7 +80,7 @@ var MonsterSystem = {
   },
 
   onMonsterDead: function(scene) {
-    // 골드 배율: 업그레이드 + 프레스티지 + 업적
+    // 골드 배율: 업그레이드 + 프레스티지 + 업적 + 골드부스터 + 펫
     var goldMult = 1 + GameState.upgrades.goldBonus * CONFIG.UPGRADE_STAT_PER_LEVEL.goldBonus;
     if (typeof PrestigeSystem !== 'undefined') {
       goldMult *= PrestigeSystem.getMultipliers().gold;
@@ -88,17 +88,26 @@ var MonsterSystem = {
     if (typeof AchievementSystem !== 'undefined') {
       goldMult *= AchievementSystem.getBonusMultipliers().gold;
     }
+    if (typeof ShopSystem !== 'undefined') {
+      goldMult *= (ShopSystem.isBuffActive('goldBooster') ? 2 : 1);
+    }
+    if (typeof PetSystem !== 'undefined') {
+      goldMult *= (1 + (PetSystem.getPetStats().goldBonus || 0));
+    }
     var goldGained = Math.floor(GameState.monster.goldDrop * goldMult);
     GameState.hero.gold += goldGained;
     GameState.meta.totalGold += goldGained;
 
-    // EXP 배율: 프레스티지 + 업적
+    // EXP 배율: 프레스티지 + 업적 + EXP부스터
     var expMult = 1;
     if (typeof PrestigeSystem !== 'undefined') {
       expMult *= PrestigeSystem.getMultipliers().exp;
     }
     if (typeof AchievementSystem !== 'undefined') {
       expMult *= AchievementSystem.getBonusMultipliers().exp;
+    }
+    if (typeof ShopSystem !== 'undefined') {
+      expMult *= (ShopSystem.isBuffActive('expBooster') ? 2 : 1);
     }
     var expGained = Math.floor(GameState.monster.expDrop * expMult);
     var leveled = UpgradeSystem.addExp(expGained);
@@ -127,10 +136,11 @@ var MonsterSystem = {
       }
     }
 
-    // 장비 드롭 체크
+    // 장비 드롭 체크 (펫 dropRate 반영)
     var droppedItem = null;
     if (typeof EquipmentSystem !== 'undefined') {
-      droppedItem = EquipmentSystem.tryDrop(GameState.stage.current);
+      var petDropRate = (typeof PetSystem !== 'undefined') ? (PetSystem.getPetStats().dropRate || 0) : 0;
+      droppedItem = EquipmentSystem.tryDrop(GameState.stage.current, petDropRate);
       if (droppedItem) {
         var added = EquipmentSystem._addToInventory(droppedItem);
         if (!added) droppedItem = null;
@@ -144,12 +154,33 @@ var MonsterSystem = {
       }
     }
 
+    // 펫 먹이 드롭
+    if (typeof PetSystem !== 'undefined' && GameState.pets) {
+      if (GameState.monster.isBoss) {
+        if (Math.random() < 0.20) GameState.pets.food.petFood_m = (GameState.pets.food.petFood_m || 0) + 1;
+      } else {
+        if (Math.random() < 0.05) GameState.pets.food.petFood_s = (GameState.pets.food.petFood_s || 0) + 1;
+      }
+    }
+
+    // 제작 재료 드롭
+    var droppedMaterial = null;
+    if (typeof CraftingSystem !== 'undefined' && GameState.crafting) {
+      droppedMaterial = CraftingSystem.tryDropMaterial(GameState.stage.current, GameState.monster.isBoss);
+      if (droppedMaterial) {
+        GameState.crafting.materials[droppedMaterial]++;
+        if (scene && scene.events) {
+          scene.events.emit('materialDropped', droppedMaterial);
+        }
+      }
+    }
+
     // 스테이지 완료 체크
     if (GameState.stage.killCount >= CONFIG.KILLS_PER_STAGE) {
       this.onStageComplete(scene);
     }
 
-    return { goldGained: goldGained, expGained: expGained, leveled: leveled, droppedItem: droppedItem };
+    return { goldGained: goldGained, expGained: expGained, leveled: leveled, droppedItem: droppedItem, droppedMaterial: droppedMaterial };
   },
 
   onStageComplete: function(scene) {

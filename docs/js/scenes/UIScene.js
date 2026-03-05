@@ -18,12 +18,14 @@ class UIScene extends Phaser.Scene {
   create() {
     this._buildHUD();
     this._buildSkillBar();
-    this._buildUpgradePanel();
+    this._buildShopPanel();
     this._buildEquipmentPanel();
     this._buildInventoryPanel();
     this._buildSettingsPanel();
     this._buildPrestigeUI();
     this._buildQuestSidebar();
+    this._buildPetModal();
+    this._buildCraftingModal();
 
     UISceneInstance = this;
     this.onGameUpdate();
@@ -37,11 +39,13 @@ class UIScene extends Phaser.Scene {
     this._updateHUD();
     this._updateHPBars();
     this._updateStatBar();
-    this._updateUpgradeButtons();
+    this._updateShopPanel();
     this._updateSkillBar();
     this._updateEquipmentSlots();
     this._updateSoulBadge();
     this._updateQuestSidebar();
+    this._updatePetSlot();
+    this._updateHudBuffs();
   }
 
   // ===== HUD 빌드 =====
@@ -56,19 +60,16 @@ class UIScene extends Phaser.Scene {
       <div class="hud-badge" id="hud-stage">스테이지 <span>1</span></div>
       <div class="hud-badge" id="hud-kills">처치 <span>0</span> / 10</div>
       <div class="hud-badge" id="hud-gold">💰 <span>0</span></div>
+      <div id="hud-buffs"></div>
       <div class="hud-badge hud-souls-badge" id="hud-souls" style="display:none;cursor:pointer;">💎 <span>0</span></div>
     `;
     overlay.appendChild(hudTop);
 
-    // 영혼석 배지 클릭 → 영혼석 상점
+    // 영혼석 배지 클릭 → 상점 버프 탭으로 이동
     var soulsEl = document.getElementById('hud-souls');
     if (soulsEl) {
       soulsEl.onclick = function() {
-        var shop = document.getElementById('soul-shop-panel');
-        if (shop) {
-          self._refreshSoulShop();
-          shop.classList.add('visible');
-        }
+        self._openShopTab('buff');
       };
     }
 
@@ -137,6 +138,16 @@ class UIScene extends Phaser.Scene {
       self._openPrestigeConfirm();
     };
     overlay.appendChild(prestigeBtn);
+
+    // 제작 버튼
+    var craftingBtn = document.createElement('button');
+    craftingBtn.id = 'crafting-btn';
+    craftingBtn.innerHTML = '🔨';
+    craftingBtn.title = '제작소';
+    craftingBtn.onclick = function() {
+      self._openCraftingModal();
+    };
+    overlay.appendChild(craftingBtn);
 
     // 세팅 버튼
     var settingsBtn = document.createElement('button');
@@ -305,21 +316,37 @@ class UIScene extends Phaser.Scene {
     setTimeout(function() { slot.classList.remove('activating'); }, 400);
   }
 
-  // ===== 업그레이드 패널 빌드 =====
-  _buildUpgradePanel() {
+  // ===== 상점 패널 빌드 (강화 / 소모품 / 버프 탭) =====
+  _buildShopPanel() {
     var overlay = document.getElementById('ui-overlay');
-
-    var upgrades = [
-      { key: 'atk',       icon: '⚔️',  name: 'ATK',   desc: '공격력' },
-      { key: 'def',       icon: '🛡️',  name: 'DEF',   desc: '방어력' },
-      { key: 'hp',        icon: '❤️',  name: 'HP',    desc: '최대 HP' },
-      { key: 'spd',       icon: '⚡',  name: 'SPD',   desc: '공속' },
-      { key: 'critChance',icon: '💫',  name: 'CRIT',  desc: '치명타' },
-      { key: 'goldBonus', icon: '💰',  name: 'GOLD',  desc: '골드 보너스' }
-    ];
+    var self = this;
 
     var panel = document.createElement('div');
-    panel.id = 'upgrade-panel';
+    panel.id = 'shop-panel';
+
+    // 탭 바
+    var tabBar = document.createElement('div');
+    tabBar.className = 'shop-tab-bar';
+    tabBar.innerHTML = `
+      <button class="shop-tab active" id="stab-enhance">⚔ 강화</button>
+      <button class="shop-tab" id="stab-consumable">🧪 소모품</button>
+      <button class="shop-tab" id="stab-buff">💎 버프</button>
+    `;
+    panel.appendChild(tabBar);
+
+    // 강화 탭
+    var enhanceTab = document.createElement('div');
+    enhanceTab.className = 'shop-tab-content';
+    enhanceTab.id = 'shop-tab-enhance';
+
+    var upgrades = [
+      { key: 'atk',        icon: '⚔',  name: 'ATK' },
+      { key: 'def',        icon: '🛡',  name: 'DEF' },
+      { key: 'hp',         icon: '❤',  name: 'HP' },
+      { key: 'spd',        icon: '⚡',  name: 'SPD' },
+      { key: 'critChance', icon: '💫',  name: 'CRIT' },
+      { key: 'goldBonus',  icon: '💰',  name: 'GOLD' }
+    ];
 
     upgrades.forEach(function(upg) {
       var btn = document.createElement('button');
@@ -331,20 +358,92 @@ class UIScene extends Phaser.Scene {
         <div class="btn-level" id="upg-lv-${upg.key}">Lv.0</div>
         <div class="btn-cost" id="upg-cost-${upg.key}">💰 0</div>
       `;
-
       btn.onclick = function() {
         if (UpgradeSystem.applyUpgrade(upg.key)) {
-          this._updateUpgradeButtons();
-          this._updateStatBar();
-          this._updateHPBars();
-          this._updateEquipmentSlots();
+          self._updateShopPanel();
+          self._updateStatBar();
+          self._updateHPBars();
+          self._updateEquipmentSlots();
         }
-      }.bind(this);
+      };
+      enhanceTab.appendChild(btn);
+    });
+    panel.appendChild(enhanceTab);
 
-      panel.appendChild(btn);
-    }.bind(this));
+    // 소모품 탭
+    var consumableTab = document.createElement('div');
+    consumableTab.className = 'shop-tab-content';
+    consumableTab.id = 'shop-tab-consumable';
+    consumableTab.style.display = 'none';
+
+    if (typeof ShopSystem !== 'undefined') {
+      ShopSystem.CONSUMABLES.forEach(function(def) {
+        var btn = document.createElement('div');
+        btn.className = 'consumable-btn';
+        btn.id = 'cons-' + def.id;
+        btn.innerHTML = `
+          <div class="cons-icon">${def.icon}</div>
+          <div class="cons-name">${def.name}</div>
+          <div class="cons-stack" id="cons-stack-${def.id}">0</div>
+          <div class="cons-price" id="cons-price-${def.id}">💰 0</div>
+          <div class="buff-timer-overlay" id="cons-timer-${def.id}" style="display:none"></div>
+        `;
+        btn.title = def.desc + '\n좌클릭: 구매 / 우클릭: 사용';
+        btn.onclick = function() { self._handleConsumableBuy(def.id); };
+        btn.oncontextmenu = function(e) { e.preventDefault(); self._handleConsumableUse(def.id); };
+        consumableTab.appendChild(btn);
+      });
+    }
+    panel.appendChild(consumableTab);
+
+    // 버프 탭 (영혼석 상점)
+    var buffTab = document.createElement('div');
+    buffTab.className = 'shop-tab-content';
+    buffTab.id = 'shop-tab-buff';
+    buffTab.style.display = 'none';
+    buffTab.innerHTML = `
+      <div id="buff-tab-header">
+        <span id="buff-soul-count">💎 0개</span>
+        <span id="buff-prestige-count">환생 0회</span>
+      </div>
+      <div id="buff-tab-grid"></div>
+    `;
+    panel.appendChild(buffTab);
 
     overlay.appendChild(panel);
+
+    // 탭 클릭 이벤트
+    panel.querySelectorAll('.shop-tab').forEach(function(tab) {
+      tab.onclick = function() {
+        var tabKey = tab.id.replace('stab-', '');
+        self._openShopTab(tabKey);
+      };
+    });
+  }
+
+  _openShopTab(tabKey) {
+    var panel = document.getElementById('shop-panel');
+    if (!panel) return;
+    panel.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
+    panel.querySelectorAll('.shop-tab-content').forEach(function(c) { c.style.display = 'none'; });
+    var tabBtn = document.getElementById('stab-' + tabKey);
+    if (tabBtn) tabBtn.classList.add('active');
+    var content = document.getElementById('shop-tab-' + tabKey);
+    if (content) content.style.display = '';
+    if (tabKey === 'buff') this._refreshSoulShop();
+  }
+
+  _handleConsumableBuy(id) {
+    if (typeof ShopSystem === 'undefined') return;
+    ShopSystem.buyConsumable(id);
+    this._updateShopPanel();
+  }
+
+  _handleConsumableUse(id) {
+    if (typeof ShopSystem === 'undefined') return;
+    ShopSystem.useConsumable(id);
+    this._updateShopPanel();
+    this._updateHPBars();
   }
 
   // ===== 장비 슬롯 패널 빌드 =====
@@ -375,6 +474,15 @@ class UIScene extends Phaser.Scene {
 
       panel.appendChild(slotEl);
     });
+
+    // 펫 슬롯
+    var petSlot = document.createElement('div');
+    petSlot.id = 'pet-slot';
+    petSlot.innerHTML = '<div class="pet-slot-icon">🐾</div><div class="pet-slot-name">펫</div>';
+    petSlot.onclick = function() {
+      self._openPetModal();
+    };
+    panel.appendChild(petSlot);
 
     overlay.appendChild(panel);
   }
@@ -774,23 +882,6 @@ class UIScene extends Phaser.Scene {
       }
     };
 
-    // 영혼석 상점 패널
-    var shopPanel = document.createElement('div');
-    shopPanel.id = 'soul-shop-panel';
-    shopPanel.innerHTML = `
-      <button id="soul-shop-close">✕</button>
-      <h2>💎 영혼석 상점</h2>
-      <div id="soul-shop-header">
-        <span id="shop-soul-count">💎 0개</span>
-        <span id="shop-prestige-count">환생 0회</span>
-      </div>
-      <div id="soul-buff-grid"></div>
-    `;
-    overlay.appendChild(shopPanel);
-
-    document.getElementById('soul-shop-close').onclick = function() {
-      shopPanel.classList.remove('visible');
-    };
   }
 
   _openPrestigeConfirm() {
@@ -816,9 +907,9 @@ class UIScene extends Phaser.Scene {
   _refreshSoulShop() {
     if (typeof PrestigeSystem === 'undefined') return;
     var self = this;
-    var grid = document.getElementById('soul-buff-grid');
-    var countEl = document.getElementById('shop-soul-count');
-    var prestigeEl = document.getElementById('shop-prestige-count');
+    var grid = document.getElementById('buff-tab-grid');
+    var countEl = document.getElementById('buff-soul-count');
+    var prestigeEl = document.getElementById('buff-prestige-count');
     if (!grid) return;
 
     if (countEl) countEl.textContent = '💎 ' + (GameState.prestige.soulStones || 0) + '개';
@@ -1156,5 +1247,410 @@ class UIScene extends Phaser.Scene {
         btn.classList.remove('can-afford');
       }
     });
+  }
+
+  // ===== 상점 패널 업데이트 =====
+  _updateShopPanel() {
+    // 강화 탭: 업그레이드 버튼 업데이트
+    this._updateUpgradeButtons();
+
+    // 소모품 탭: 스택/가격/타이머 업데이트
+    if (typeof ShopSystem === 'undefined') return;
+    ShopSystem.CONSUMABLES.forEach(function(def) {
+      var stackEl = document.getElementById('cons-stack-' + def.id);
+      var priceEl = document.getElementById('cons-price-' + def.id);
+      var timerEl = document.getElementById('cons-timer-' + def.id);
+      var btnEl   = document.getElementById('cons-' + def.id);
+
+      var stack = GameState.shop ? (GameState.shop.inventory[def.id] || 0) : 0;
+      var price = ShopSystem.getPrice(def.id);
+      if (stackEl) stackEl.textContent = stack + '/' + def.maxStack;
+      if (priceEl) priceEl.textContent = '💰 ' + formatNumber(price);
+
+      if (timerEl && def.isBuff) {
+        var secs = ShopSystem.isBuffActive(def.id);
+        if (secs > 0) {
+          timerEl.style.display = '';
+          timerEl.textContent = secs + 's';
+        } else {
+          timerEl.style.display = 'none';
+        }
+      }
+
+      if (btnEl) {
+        var canAfford = GameState.hero.gold >= price && stack < def.maxStack;
+        btnEl.style.opacity = canAfford ? '1' : '0.5';
+      }
+    });
+  }
+
+  // ===== 펫 슬롯 업데이트 =====
+  _updatePetSlot() {
+    var slot = document.getElementById('pet-slot');
+    if (!slot) return;
+    var iconEl = slot.querySelector('.pet-slot-icon');
+    var nameEl = slot.querySelector('.pet-slot-name');
+    if (typeof PetSystem === 'undefined' || !GameState.pets) return;
+
+    var pet = PetSystem.getEquippedPet();
+    if (pet) {
+      slot.style.borderColor = PetSystem.GRADE_COLORS[pet.grade];
+      slot.style.boxShadow = '0 0 6px ' + PetSystem.GRADE_COLORS[pet.grade] + '66';
+      if (iconEl) iconEl.textContent = PetSystem.PET_ICONS[pet.type] || '🐾';
+      if (nameEl) { nameEl.textContent = 'Lv.' + pet.level; nameEl.style.color = PetSystem.GRADE_COLORS[pet.grade]; }
+    } else {
+      slot.style.borderColor = '';
+      slot.style.boxShadow = '';
+      if (iconEl) iconEl.textContent = '🐾';
+      if (nameEl) { nameEl.textContent = '펫'; nameEl.style.color = ''; }
+    }
+  }
+
+  // ===== HUD 부스터 배지 업데이트 =====
+  _updateHudBuffs() {
+    var el = document.getElementById('hud-buffs');
+    if (!el) return;
+    if (typeof ShopSystem === 'undefined' || !GameState.shop) { el.innerHTML = ''; return; }
+
+    var buffIds = ['goldBooster', 'expBooster', 'dropBooster'];
+    var buffIcons = { goldBooster: '💰', expBooster: '✨', dropBooster: '🎁' };
+    var html = '';
+    buffIds.forEach(function(id) {
+      var secs = ShopSystem.isBuffActive(id);
+      if (secs > 0) {
+        html += '<span class="buff-badge">' + buffIcons[id] + ' ' + secs + 's</span>';
+      }
+    });
+    el.innerHTML = html;
+  }
+
+  // ===== 펫 모달 빌드 =====
+  _buildPetModal() {
+    if (typeof PetSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var modal = document.createElement('div');
+    modal.id = 'pet-modal';
+    modal.innerHTML = `
+      <button id="pet-modal-close">✕</button>
+      <h2>🐾 펫</h2>
+      <div class="pet-modal-tabs">
+        <button class="pet-modal-tab active" id="ptab-equipped">장착됨</button>
+        <button class="pet-modal-tab" id="ptab-inventory">인벤토리</button>
+        <button class="pet-modal-tab" id="ptab-shop">알/상점</button>
+      </div>
+      <div id="pet-modal-body"></div>
+    `;
+    overlay.appendChild(modal);
+
+    document.getElementById('pet-modal-close').onclick = function() {
+      modal.classList.remove('visible');
+    };
+
+    modal.querySelectorAll('.pet-modal-tab').forEach(function(tab) {
+      tab.onclick = function() {
+        modal.querySelectorAll('.pet-modal-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var key = tab.id.replace('ptab-', '');
+        self._refreshPetModal(key);
+      };
+    });
+  }
+
+  _openPetModal() {
+    var modal = document.getElementById('pet-modal');
+    if (!modal) return;
+    modal.classList.add('visible');
+    this._refreshPetModal('equipped');
+  }
+
+  _refreshPetModal(tab) {
+    if (typeof PetSystem === 'undefined') return;
+    var body = document.getElementById('pet-modal-body');
+    if (!body) return;
+    body.innerHTML = '';
+    var self = this;
+
+    if (tab === 'equipped') {
+      var pet = PetSystem.getEquippedPet();
+      if (!pet) {
+        body.innerHTML = '<div style="color:rgba(255,255,255,0.4);text-align:center;padding:20px">장착된 펫이 없습니다</div>';
+      } else {
+        var stats = PetSystem.getPetStats();
+        var statLines = [];
+        if (stats.atk)        statLines.push('ATK +' + Math.floor(stats.atk * 100) + '%');
+        if (stats.hp)         statLines.push('HP +'  + Math.floor(stats.hp  * 100) + '%');
+        if (stats.def)        statLines.push('DEF +' + Math.floor(stats.def * 100) + '%');
+        if (stats.critChance) statLines.push('CRIT +' + Math.floor(stats.critChance * 100) + '%');
+        if (stats.goldBonus)  statLines.push('골드 +' + Math.floor(stats.goldBonus * 100) + '%');
+        if (stats.dropRate)   statLines.push('드롭 +' + Math.floor(stats.dropRate * 100) + '%');
+        var expReq = PetSystem.getExpRequired(pet.level);
+        var expPct = Math.floor(pet.exp / expReq * 100);
+        var card = document.createElement('div');
+        card.className = 'pet-card equipped';
+        card.innerHTML = `
+          <div class="pet-card-icon">${PetSystem.PET_ICONS[pet.type]}</div>
+          <div class="pet-card-info">
+            <div class="pet-card-name" style="color:${PetSystem.GRADE_COLORS[pet.grade]}">[${PetSystem.GRADE_NAMES[pet.grade]}] ${pet.name}</div>
+            <div class="pet-card-level">Lv.${pet.level} | EXP ${pet.exp}/${expReq}</div>
+            <div class="pet-exp-bar"><div class="pet-exp-fill" style="width:${expPct}%"></div></div>
+            <div style="font-size:10px;color:#4ecdc4;margin-top:3px">${statLines.join(' / ')}</div>
+          </div>
+          <div class="pet-card-actions"><button class="pet-action-btn unequip-btn" data-uid="${pet.uid}">해제</button></div>
+        `;
+        body.appendChild(card);
+
+        // 먹이 주기
+        var foodSection = document.createElement('div');
+        foodSection.className = 'food-section';
+        foodSection.style.marginTop = '8px';
+        var foodIds = ['petFood_s', 'petFood_m', 'petFood_l'];
+        foodIds.forEach(function(fid) {
+          var count = GameState.pets.food[fid] || 0;
+          var btn = document.createElement('button');
+          btn.className = 'food-btn';
+          btn.disabled = count <= 0;
+          btn.innerHTML = PetSystem.FOOD_ICONS[fid] + '<br>' + PetSystem.FOOD_NAMES[fid] + '<br>x' + count;
+          btn.onclick = function() {
+            PetSystem.feedPet(pet.uid, fid);
+            self._refreshPetModal('equipped');
+            self._updatePetSlot();
+          };
+          foodSection.appendChild(btn);
+        });
+        body.appendChild(foodSection);
+
+        card.querySelector('.unequip-btn').onclick = function() {
+          PetSystem.unequip();
+          self._refreshPetModal('equipped');
+          self._updatePetSlot();
+        };
+      }
+
+    } else if (tab === 'inventory') {
+      var inv = GameState.pets.inventory;
+      if (inv.length === 0) {
+        body.innerHTML = '<div style="color:rgba(255,255,255,0.4);text-align:center;padding:20px">보유한 펫이 없습니다</div>';
+      } else {
+        inv.forEach(function(pet) {
+          var isEquipped = GameState.pets.equipped === pet.uid;
+          var card = document.createElement('div');
+          card.className = 'pet-card' + (isEquipped ? ' equipped' : '');
+          var expPct = Math.floor(pet.exp / PetSystem.getExpRequired(pet.level) * 100);
+          card.innerHTML = `
+            <div class="pet-card-icon">${PetSystem.PET_ICONS[pet.type]}</div>
+            <div class="pet-card-info">
+              <div class="pet-card-name" style="color:${PetSystem.GRADE_COLORS[pet.grade]}">[${PetSystem.GRADE_NAMES[pet.grade]}] ${pet.name}</div>
+              <div class="pet-card-level">Lv.${pet.level} | ${PetSystem.PET_NAMES[pet.type]}</div>
+              <div class="pet-exp-bar"><div class="pet-exp-fill" style="width:${expPct}%"></div></div>
+            </div>
+            <div class="pet-card-actions">
+              ${isEquipped
+                ? '<button class="pet-action-btn unequip-btn" data-uid="' + pet.uid + '">해제</button>'
+                : '<button class="pet-action-btn equip-btn" data-uid="' + pet.uid + '">장착</button>'}
+            </div>
+          `;
+          var equipBtn = card.querySelector('.equip-btn');
+          if (equipBtn) {
+            equipBtn.onclick = function() {
+              PetSystem.equip(this.dataset.uid);
+              self._refreshPetModal('inventory');
+              self._updatePetSlot();
+            };
+          }
+          var unequipBtn = card.querySelector('.unequip-btn');
+          if (unequipBtn) {
+            unequipBtn.onclick = function() {
+              PetSystem.unequip();
+              self._refreshPetModal('inventory');
+              self._updatePetSlot();
+            };
+          }
+          body.appendChild(card);
+        });
+      }
+
+    } else { // shop
+      // 보유 알 현황
+      var eggsDiv = document.createElement('div');
+      eggsDiv.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px';
+      eggsDiv.textContent = '보유 알: ' +
+        PetSystem.EGG_TYPES.map(function(e) { return e.name + ' x' + (GameState.pets.eggs[e.id] || 0); }).join(' / ');
+      body.appendChild(eggsDiv);
+
+      // 알 구매 + 부화
+      var eggSection = document.createElement('div');
+      eggSection.className = 'egg-buy-section';
+      PetSystem.EGG_TYPES.forEach(function(eggDef) {
+        var col = document.createElement('div');
+        col.style.cssText = 'display:flex;flex-direction:column;gap:4px;align-items:center;flex:1';
+        var buyBtn = document.createElement('button');
+        buyBtn.className = 'egg-buy-btn';
+        buyBtn.innerHTML = eggDef.icon + '<br>' + eggDef.name + '<br>💰 ' + formatNumber(eggDef.price);
+        buyBtn.disabled = GameState.hero.gold < eggDef.price;
+        buyBtn.onclick = function() {
+          if (PetSystem.buyEgg(eggDef.id)) self._refreshPetModal('shop');
+        };
+        var hatchBtn = document.createElement('button');
+        hatchBtn.className = 'hatch-btn';
+        var eggCount = GameState.pets.eggs[eggDef.id] || 0;
+        hatchBtn.textContent = '부화 (' + eggCount + ')';
+        hatchBtn.disabled = eggCount <= 0 || GameState.pets.inventory.length >= 15;
+        hatchBtn.onclick = function() {
+          var newPet = PetSystem.hatchEgg(eggDef.id);
+          if (newPet) {
+            self._refreshPetModal('shop');
+            self._updatePetSlot();
+          }
+        };
+        col.appendChild(buyBtn);
+        col.appendChild(hatchBtn);
+        eggSection.appendChild(col);
+      });
+      body.appendChild(eggSection);
+
+      // 먹이 현황
+      var foodDiv = document.createElement('div');
+      foodDiv.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.5);margin-top:10px';
+      foodDiv.textContent = '먹이: ' +
+        Object.keys(PetSystem.FOOD_NAMES).map(function(fid) {
+          return PetSystem.FOOD_ICONS[fid] + (GameState.pets.food[fid] || 0);
+        }).join('  ');
+      body.appendChild(foodDiv);
+    }
+  }
+
+  // ===== 제작소 모달 빌드 =====
+  _buildCraftingModal() {
+    if (typeof CraftingSystem === 'undefined') return;
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+    this._craftingCatFilter = 'equipment';
+
+    var modal = document.createElement('div');
+    modal.id = 'crafting-modal';
+    modal.innerHTML = `
+      <button id="crafting-modal-close">✕</button>
+      <h2>🔨 제작소</h2>
+      <div id="craft-materials-bar"></div>
+      <div class="crafting-cat-tabs">
+        <button class="crafting-cat-tab active" data-cat="equipment">장비</button>
+        <button class="crafting-cat-tab" data-cat="material">강화 재료</button>
+        <button class="crafting-cat-tab" data-cat="special">특수</button>
+      </div>
+      <div id="crafting-recipe-list"></div>
+    `;
+    overlay.appendChild(modal);
+
+    document.getElementById('crafting-modal-close').onclick = function() {
+      modal.classList.remove('visible');
+    };
+
+    modal.querySelectorAll('.crafting-cat-tab').forEach(function(tab) {
+      tab.onclick = function() {
+        modal.querySelectorAll('.crafting-cat-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        self._craftingCatFilter = tab.dataset.cat;
+        self._refreshCraftingModal();
+      };
+    });
+  }
+
+  _openCraftingModal() {
+    var modal = document.getElementById('crafting-modal');
+    if (!modal) return;
+    modal.classList.add('visible');
+    this._refreshCraftingModal();
+  }
+
+  _refreshCraftingModal() {
+    if (typeof CraftingSystem === 'undefined') return;
+    var self = this;
+
+    // 재료 현황 바 업데이트
+    var matBar = document.getElementById('craft-materials-bar');
+    if (matBar) {
+      var html = '';
+      CraftingSystem.MATERIALS.forEach(function(mat) {
+        var count = GameState.crafting ? (GameState.crafting.materials[mat.id] || 0) : 0;
+        html += '<div class="craft-mat-badge' + (count === 0 ? ' craft-mat-zero' : '') + '">'
+          + mat.icon + ' ' + mat.name + ' <b>' + count + '</b></div>';
+      });
+      // 강화 재료도 표시
+      var eMats = GameState.crafting ? GameState.crafting.enhanceMaterials : {};
+      var eStone = eMats.enhanceStone || 0;
+      var lStone = eMats.legendStone  || 0;
+      html += '<div class="craft-mat-badge' + (eStone === 0 ? ' craft-mat-zero' : '') + '">🔧 강화석 <b>' + eStone + '</b></div>';
+      html += '<div class="craft-mat-badge' + (lStone === 0 ? ' craft-mat-zero' : '') + '">✨ 전설석 <b>' + lStone + '</b></div>';
+      matBar.innerHTML = html;
+    }
+
+    // 레시피 목록 업데이트
+    var recipeList = document.getElementById('crafting-recipe-list');
+    if (!recipeList) return;
+    recipeList.innerHTML = '';
+
+    var cat = this._craftingCatFilter || 'equipment';
+    CraftingSystem.RECIPES.forEach(function(recipe) {
+      if (recipe.cat !== cat) return;
+      var canCraft = CraftingSystem.canCraft(recipe.id);
+      var card = document.createElement('div');
+      card.className = 'recipe-card';
+
+      // 재료 표시
+      var costParts = [];
+      for (var matId in recipe.cost) {
+        var have = (GameState.crafting.materials[matId] !== undefined)
+          ? GameState.crafting.materials[matId]
+          : (GameState.crafting.enhanceMaterials[matId] || 0);
+        var need = recipe.cost[matId];
+        var cls = have >= need ? 'material-ok' : 'material-lack';
+        var matDef = CraftingSystem.getMaterialDef(matId);
+        var icon = matDef ? matDef.icon : matId;
+        costParts.push('<span class="' + cls + '">' + icon + ' ' + matId + ' ' + have + '/' + need + '</span>');
+      }
+
+      card.innerHTML = `
+        <div class="recipe-icon">${recipe.icon}</div>
+        <div class="recipe-info">
+          <div class="recipe-name">${recipe.name}</div>
+          <div class="recipe-cost">${costParts.join(' ')}</div>
+        </div>
+        <button class="craft-btn" ${canCraft ? '' : 'disabled'} data-recipe="${recipe.id}">제작</button>
+      `;
+
+      card.querySelector('.craft-btn').onclick = function() {
+        var result = CraftingSystem.craft(this.dataset.recipe);
+        if (result) {
+          self._refreshCraftingModal();
+          self._updateShopPanel();
+          if (result.type === 'equipment' && result.item) {
+            self.showDropToast(result.item);
+          }
+        }
+      };
+
+      recipeList.appendChild(card);
+    });
+  }
+
+  // ===== 재료 드롭 토스트 =====
+  showMaterialToast(matId) {
+    if (typeof CraftingSystem === 'undefined') return;
+    var matDef = CraftingSystem.getMaterialDef(matId);
+    if (!matDef) return;
+
+    var overlay = document.getElementById('ui-overlay');
+    var toast = document.createElement('div');
+    toast.className = 'drop-toast material';
+    toast.textContent = matDef.icon + ' ' + matDef.name + ' 획득!';
+    overlay.appendChild(toast);
+
+    setTimeout(function() { toast.classList.add('visible'); }, 10);
+    setTimeout(function() {
+      toast.classList.remove('visible');
+      setTimeout(function() { toast.remove(); }, 400);
+    }, 2000);
   }
 }
