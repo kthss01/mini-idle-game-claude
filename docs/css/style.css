@@ -1,0 +1,410 @@
+/* ===== 전체 레이아웃 ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0f;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+#game-container {
+  position: relative;
+  width: 800px;
+  height: 600px;
+}
+
+canvas {
+  display: block;
+}
+
+/* ===== UI 오버레이 ===== */
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ===== 상단 HUD ===== */
+#hud-top {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.hud-badge {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hud-badge span {
+  color: #ffd700;
+}
+
+/* ===== HP 바 ===== */
+#hp-bars {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.hp-bar-container {
+  flex: 1;
+}
+
+.hp-bar-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.hp-bar-bg {
+  height: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.hp-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.2s ease;
+}
+
+#hero-hp-fill {
+  background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
+#monster-hp-fill {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+/* ===== 하단 스탯바 ===== */
+#stat-bar {
+  position: absolute;
+  bottom: 120px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.stat-item {
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 4px 10px;
+  text-align: center;
+  min-width: 60px;
+}
+
+.stat-item .stat-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-item .stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ===== 업그레이드 패널 ===== */
+#upgrade-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 112px;
+  background: rgba(0, 0, 0, 0.85);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  pointer-events: all;
+}
+
+.upgrade-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 88px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 8px 6px;
+  gap: 4px;
+}
+
+.upgrade-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,215,0,0.5);
+  transform: translateY(-1px);
+}
+
+.upgrade-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.upgrade-btn.can-afford {
+  border-color: rgba(255,215,0,0.4);
+}
+
+.upgrade-btn .btn-icon {
+  font-size: 20px;
+}
+
+.upgrade-btn .btn-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+}
+
+.upgrade-btn .btn-level {
+  font-size: 10px;
+  color: #4ecdc4;
+}
+
+.upgrade-btn .btn-cost {
+  font-size: 11px;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+/* ===== 세팅 버튼 ===== */
+#settings-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  z-index: 20;
+  transition: background 0.15s;
+}
+
+#settings-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ===== 세팅 패널 오버레이 ===== */
+#settings-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 24px;
+  z-index: 50;
+  pointer-events: all;
+  display: none;
+}
+
+#settings-panel.visible {
+  display: block;
+}
+
+#settings-panel h2 {
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-btn:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.settings-btn.danger {
+  border-color: rgba(231, 76, 60, 0.5);
+  color: #e74c3c;
+}
+
+.settings-btn.danger:hover {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+#settings-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#settings-info {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+}
+
+/* ===== 오프라인 보상 팝업 ===== */
+#offline-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(255,215,0,0.4);
+  border-radius: 12px;
+  padding: 24px;
+  z-index: 100;
+  pointer-events: all;
+  text-align: center;
+  display: none;
+}
+
+#offline-popup.visible {
+  display: block;
+}
+
+#offline-popup h2 {
+  color: #ffd700;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+#offline-popup .offline-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffd700;
+  margin: 12px 0;
+}
+
+#offline-popup p {
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+#offline-popup button {
+  padding: 10px 32px;
+  background: #ffd700;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+#offline-popup button:hover {
+  opacity: 0.85;
+}
+
+/* ===== 레벨업 배너 ===== */
+#levelup-banner {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,215,0,0.15);
+  border: 2px solid #ffd700;
+  border-radius: 10px;
+  padding: 12px 32px;
+  color: #ffd700;
+  font-size: 22px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 30;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(255,215,0,0.5);
+}
+
+/* ===== 스크린 오버레이 (씬 전환) ===== */
+#screen-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 200;
+  transition: opacity 0.3s ease;
+}

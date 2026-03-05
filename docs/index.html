@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>미니 방치형 RPG</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+  <!-- 게임 컨테이너 (Phaser Canvas + UI 오버레이) -->
+  <div id="game-container">
+    <!-- Phaser가 canvas를 여기에 삽입 -->
+
+    <!-- UI 오버레이 (JS가 동적으로 채움) -->
+    <div id="ui-overlay"></div>
+  </div>
+
+  <!-- Phaser 3 CDN (버전 고정) -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js"></script>
+
+  <!-- 유틸리티 (가장 먼저 로드) -->
+  <script src="./js/utils/helpers.js"></script>
+
+  <!-- 상수 및 상태 -->
+  <script src="./js/config.js"></script>
+  <script src="./js/state.js"></script>
+
+  <!-- 시스템 (UpgradeSystem은 SaveSystem보다 먼저 필요) -->
+  <script src="./js/systems/UpgradeSystem.js"></script>
+  <script src="./js/systems/SaveSystem.js"></script>
+  <script src="./js/systems/MonsterSystem.js"></script>
+  <script src="./js/systems/CombatSystem.js"></script>
+
+  <!-- VFX -->
+  <script src="./js/vfx/VFXManager.js"></script>
+
+  <!-- 씬 (순서 중요: Boot → Game → UI) -->
+  <script src="./js/scenes/BootScene.js"></script>
+  <script src="./js/scenes/GameScene.js"></script>
+  <script src="./js/scenes/UIScene.js"></script>
+
+  <!-- 진입점 (가장 마지막) -->
+  <script src="./js/main.js"></script>
+
+</body>
+</html>
