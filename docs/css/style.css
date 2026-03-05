@@ -586,3 +586,217 @@ canvas {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ===== 장비 슬롯 패널 (좌측) ===== */
+#equip-panel {
+  position: absolute;
+  left: 10px;
+  top: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: all;
+  z-index: 15;
+}
+
+.equip-slot {
+  width: 50px;
+  height: 50px;
+  background: rgba(0,0,0,0.75);
+  border: 2px dashed rgba(255,255,255,0.2);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+  padding: 2px;
+}
+
+.equip-slot:hover {
+  border-style: solid;
+  border-color: rgba(255,255,255,0.5) !important;
+}
+
+.equip-slot-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.equip-slot-name {
+  font-size: 7px;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46px;
+}
+
+/* ===== 인벤토리 패널 (모달) ===== */
+#inventory-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 340px;
+  max-height: 440px;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 60;
+  pointer-events: all;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#inventory-panel.visible {
+  display: flex;
+}
+
+.inv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inv-header h3 {
+  color: #fff;
+  font-size: 15px;
+}
+
+#inventory-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.inv-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 3px;
+  transition: border-color 0.15s;
+  overflow: hidden;
+}
+
+.inv-cell:hover:not(.empty) {
+  border-color: rgba(255,255,255,0.4);
+}
+
+.inv-cell.selected {
+  box-shadow: 0 0 6px rgba(255,255,255,0.5);
+}
+
+.inv-cell.empty {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.inv-cell-icon {
+  font-size: 16px;
+}
+
+.inv-cell-name {
+  font-size: 7px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 98%;
+  color: rgba(255,255,255,0.8);
+}
+
+#item-detail {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 10px;
+}
+
+#item-detail-content {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 8px;
+  min-height: 40px;
+}
+
+#item-detail-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.inv-action-btn {
+  padding: 5px 10px;
+  background: rgba(78,205,196,0.12);
+  border: 1px solid #4ecdc4;
+  border-radius: 6px;
+  color: #4ecdc4;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.inv-action-btn:hover:not(:disabled) {
+  background: rgba(78,205,196,0.28);
+}
+
+.inv-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.inv-action-btn.sell {
+  border-color: #e74c3c;
+  color: #e74c3c;
+  background: rgba(231,76,60,0.1);
+}
+
+.inv-action-btn.sell:hover {
+  background: rgba(231,76,60,0.25);
+}
+
+/* ===== 드롭 토스트 ===== */
+.drop-toast {
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 80;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.drop-toast.visible {
+  opacity: 1;
+  transform: translateX(0);
+}

@@ -33,6 +33,14 @@ class GameScene extends Phaser.Scene {
     // 스테이지 변경 이벤트 리스너
     this.events.on('stageChanged', this._onStageChanged, this);
 
+    // 장비 드롭 이벤트 리스너
+    this.events.on('itemDropped', function(item) {
+      var uiScene = this.scene.get('UIScene');
+      if (uiScene && uiScene.showDropToast) {
+        uiScene.showDropToast(item);
+      }
+    }, this);
+
     // 첫 렌더링
     this._updateHeroVisual();
   }
