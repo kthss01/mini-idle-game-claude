@@ -96,15 +96,22 @@ var CombatSystem = {
 
       // 영웅 사망 처리 (HP가 0이 되면 회복)
       if (GameState.hero.hp <= 0) {
-        GameState.hero.hp = Math.floor(GameState.hero.maxHp * 0.3);
-        // 사망 횟수 추적 (비밀 업적)
-        if (GameState.achievements) {
-          GameState.achievements.stats.deaths++;
-          if (typeof AchievementSystem !== 'undefined') {
-            AchievementSystem.check('deaths', GameState.achievements.stats.deaths);
+        // 부활석 자동 소모 체크
+        if (typeof ShopSystem !== 'undefined' && GameState.shop && GameState.shop.inventory.revive > 0) {
+          GameState.shop.inventory.revive--;
+          GameState.hero.hp = GameState.hero.maxHp;
+          events.push({ type: 'reviveUsed' });
+        } else {
+          GameState.hero.hp = Math.floor(GameState.hero.maxHp * 0.3);
+          // 사망 횟수 추적 (비밀 업적)
+          if (GameState.achievements) {
+            GameState.achievements.stats.deaths++;
+            if (typeof AchievementSystem !== 'undefined') {
+              AchievementSystem.check('deaths', GameState.achievements.stats.deaths);
+            }
           }
+          events.push({ type: 'heroDeath' });
         }
-        events.push({ type: 'heroDeath' });
       }
     }
 

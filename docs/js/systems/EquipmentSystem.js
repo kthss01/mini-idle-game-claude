@@ -40,9 +40,13 @@ var EquipmentSystem = {
     }
   },
 
-  // 몬스터 처치 시 호출 - 드롭 여부 결정
-  tryDrop: function(stage) {
-    var dropChance = GameState.stage.isBoss ? 0.4 : 0.15;
+  // 몬스터 처치 시 호출 - 드롭 여부 결정 (dropRateBonus: 펫 dropRate)
+  tryDrop: function(stage, dropRateBonus) {
+    var base = GameState.stage.isBoss ? 0.4 : 0.15;
+    var dropChance = base * (1 + (dropRateBonus || 0));
+    if (typeof ShopSystem !== 'undefined') {
+      dropChance *= (ShopSystem.isBuffActive('dropBooster') ? 2 : 1);
+    }
     if (Math.random() >= dropChance) return null;
     return this.generateEquipment(stage);
   },

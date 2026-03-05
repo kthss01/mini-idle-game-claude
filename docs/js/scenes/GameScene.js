@@ -11,6 +11,8 @@ class GameScene extends Phaser.Scene {
     this.monsterNameText = null;
     this.stageTransitioning = false;
     this.monsterIsDead = false; // 이중 사망 방지 플래그
+    this.petContainer = null;
+    this._lastEquippedPetUid = null;
   }
 
   create() {
@@ -27,6 +29,9 @@ class GameScene extends Phaser.Scene {
     // 전투 시스템 초기화
     CombatSystem.init();
 
+    // 펫 스프라이트 생성
+    this._createPet();
+
     // UIScene 시작 (병렬 실행)
     this.scene.launch('UIScene');
 
@@ -38,6 +43,14 @@ class GameScene extends Phaser.Scene {
       var uiScene = this.scene.get('UIScene');
       if (uiScene && uiScene.showDropToast) {
         uiScene.showDropToast(item);
+      }
+    }, this);
+
+    // 재료 드롭 이벤트 리스너
+    this.events.on('materialDropped', function(matId) {
+      var uiScene = this.scene.get('UIScene');
+      if (uiScene && uiScene.showMaterialToast) {
+        uiScene.showMaterialToast(matId);
       }
     }, this);
 
@@ -55,6 +68,14 @@ class GameScene extends Phaser.Scene {
       GameState.meta.playTime += CONFIG.AUTO_SAVE_INTERVAL / 1000;
       SaveSystem.save();
     }
+
+    // 상점 시스템 틱
+    if (typeof ShopSystem !== 'undefined') {
+      ShopSystem.processTick(delta);
+    }
+
+    // 펫 스프라이트 업데이트
+    this._updatePetSprite();
 
     // 전투 처리
     var events = CombatSystem.processTick(delta, this);
@@ -171,6 +192,63 @@ class GameScene extends Phaser.Scene {
 
   _updateHeroVisual() {
     // 필요시 영웅 비주얼 업데이트
+  }
+
+  // ===== 펫 스프라이트 =====
+  _createPet() {
+    if (this.petContainer) {
+      this.petContainer.destroy();
+      this.petContainer = null;
+    }
+    if (typeof PetSystem === 'undefined') return;
+    var pet = PetSystem.getEquippedPet();
+    if (!pet) return;
+
+    var px = CONFIG.HERO_X - 55;
+    var py = CONFIG.HERO_Y + 15;
+    this.petContainer = this.add.container(px, py);
+
+    if (pet.type === 'dragon') {
+      var body = this.add.triangle(0, 0, 0, -18, -14, 10, 14, 10, 0xcc2200);
+      var wingL = this.add.triangle(-14, 0, -28, -12, -10, 4, -6, 8, 0xff4422, 0.8);
+      var wingR = this.add.triangle(14, 0, 28, -12, 10, 4, 6, 8, 0xff4422, 0.8);
+      var eye = this.add.circle(0, -6, 3, 0xffd700);
+      this.petContainer.add([wingL, wingR, body, eye]);
+    } else if (pet.type === 'turtle') {
+      var shell = this.add.circle(0, 0, 16, 0x27ae60);
+      var head = this.add.circle(0, -18, 8, 0x2ecc71);
+      var pattern = this.add.circle(0, 0, 8, 0x1e8449, 0.5);
+      this.petContainer.add([shell, head, pattern]);
+    } else { // fox
+      var fbody = this.add.circle(0, 0, 14, 0xe67e22);
+      var ftail = this.add.triangle(16, 8, 28, -4, 22, 16, 14, 12, 0xe67e22);
+      var fhead = this.add.circle(0, -16, 9, 0xe67e22);
+      var fear1 = this.add.triangle(-6, -22, -10, -32, -2, -22, -6, -18, 0xe67e22);
+      var fear2 = this.add.triangle(6, -22, 10, -32, 2, -22, 6, -18, 0xe67e22);
+      var feye = this.add.circle(0, -16, 3, 0x2c3e50);
+      this.petContainer.add([ftail, fbody, fhead, fear1, fear2, feye]);
+    }
+
+    this.petContainer.setDepth(9);
+    this.tweens.add({
+      targets: this.petContainer,
+      y: py - 6,
+      duration: 1000 + Math.random() * 400,
+      ease: 'Sine.inOut',
+      yoyo: true,
+      repeat: -1
+    });
+
+    this._lastEquippedPetUid = pet.uid;
+  }
+
+  _updatePetSprite() {
+    if (typeof PetSystem === 'undefined') return;
+    var pet = PetSystem.getEquippedPet();
+    var newUid = pet ? pet.uid : null;
+    if (newUid !== this._lastEquippedPetUid) {
+      this._createPet();
+    }
   }
 
   // ===== 몬스터 =====

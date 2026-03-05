@@ -51,6 +51,20 @@ var SaveSystem = {
           daily: GameState.quests.daily.slice(),
           lastDailyReset: GameState.quests.lastDailyReset,
           totalCompleted: GameState.quests.totalCompleted
+        } : null,
+        shop: GameState.shop ? {
+          inventory: Object.assign({}, GameState.shop.inventory),
+          activeBuffs: Object.assign({}, GameState.shop.activeBuffs)
+        } : null,
+        pets: GameState.pets ? {
+          equipped: GameState.pets.equipped,
+          inventory: GameState.pets.inventory.slice(),
+          eggs: Object.assign({}, GameState.pets.eggs),
+          food: Object.assign({}, GameState.pets.food)
+        } : null,
+        crafting: GameState.crafting ? {
+          materials: Object.assign({}, GameState.crafting.materials),
+          enhanceMaterials: Object.assign({}, GameState.crafting.enhanceMaterials)
         } : null
       };
       localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saveData));
@@ -114,6 +128,30 @@ var SaveSystem = {
         totalCompleted: 0
       };
       saveData.version = 2;
+    }
+
+    // v2 → v3: shop, pets 필드 추가
+    if (saveData.version < 3) {
+      saveData.shop = saveData.shop || {
+        inventory: { hpPotion: 0, goldBooster: 0, expBooster: 0, revive: 0, dropBooster: 0 },
+        activeBuffs: { goldBooster: 0, expBooster: 0, dropBooster: 0 }
+      };
+      saveData.pets = saveData.pets || {
+        equipped: null,
+        inventory: [],
+        eggs: { dragonEgg: 0, turtleEgg: 0, foxEgg: 0 },
+        food: { petFood_s: 0, petFood_m: 0, petFood_l: 0 }
+      };
+      saveData.version = 3;
+    }
+
+    // v3 → v4: crafting 필드 추가
+    if (saveData.version < 4) {
+      saveData.crafting = saveData.crafting || {
+        materials: { ironOre: 0, magicCrystal: 0, dragonScale: 0, voidEssence: 0, ancientShard: 0 },
+        enhanceMaterials: { enhanceStone: 0, legendStone: 0 }
+      };
+      saveData.version = 4;
     }
 
     return saveData;
@@ -216,6 +254,51 @@ var SaveSystem = {
       GameState.quests.lastDailyReset= qd.lastDailyReset|| 0;
       GameState.quests.totalCompleted= qd.totalCompleted || 0;
     }
+
+    // shop 복원
+    if (GameState.shop && saveData.shop) {
+      var sh = saveData.shop;
+      if (sh.inventory) {
+        GameState.shop.inventory.hpPotion    = sh.inventory.hpPotion    || 0;
+        GameState.shop.inventory.goldBooster = sh.inventory.goldBooster || 0;
+        GameState.shop.inventory.expBooster  = sh.inventory.expBooster  || 0;
+        GameState.shop.inventory.dropBooster = sh.inventory.dropBooster || 0;
+        GameState.shop.inventory.revive      = sh.inventory.revive      || 0;
+      }
+      if (sh.activeBuffs) {
+        GameState.shop.activeBuffs.goldBooster = sh.activeBuffs.goldBooster || 0;
+        GameState.shop.activeBuffs.expBooster  = sh.activeBuffs.expBooster  || 0;
+        GameState.shop.activeBuffs.dropBooster = sh.activeBuffs.dropBooster || 0;
+      }
+    }
+
+    // pets 복원
+    if (GameState.pets && saveData.pets) {
+      var pt = saveData.pets;
+      GameState.pets.equipped  = pt.equipped  || null;
+      GameState.pets.inventory = pt.inventory || [];
+      GameState.pets.eggs      = pt.eggs      || { dragonEgg: 0, turtleEgg: 0, foxEgg: 0 };
+      GameState.pets.food      = pt.food      || { petFood_s: 0, petFood_m: 0, petFood_l: 0 };
+    }
+
+    // crafting 복원
+    if (GameState.crafting && saveData.crafting) {
+      var cr = saveData.crafting;
+      if (cr.materials) {
+        GameState.crafting.materials.ironOre      = cr.materials.ironOre      || 0;
+        GameState.crafting.materials.magicCrystal = cr.materials.magicCrystal || 0;
+        GameState.crafting.materials.dragonScale  = cr.materials.dragonScale  || 0;
+        GameState.crafting.materials.voidEssence  = cr.materials.voidEssence  || 0;
+        GameState.crafting.materials.ancientShard = cr.materials.ancientShard || 0;
+      }
+      if (cr.enhanceMaterials) {
+        GameState.crafting.enhanceMaterials.enhanceStone = cr.enhanceMaterials.enhanceStone || 0;
+        GameState.crafting.enhanceMaterials.legendStone  = cr.enhanceMaterials.legendStone  || 0;
+      }
+    }
+
+    // pets 포함한 스탯 재계산
+    if (typeof PetSystem !== 'undefined') UpgradeSystem.recalculateStats();
   },
 
   calculateOfflineReward: function() {
