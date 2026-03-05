@@ -80,19 +80,52 @@ var MonsterSystem = {
   },
 
   onMonsterDead: function(scene) {
-    // 골드 보상
+    // 골드 배율: 업그레이드 + 프레스티지 + 업적
     var goldMult = 1 + GameState.upgrades.goldBonus * CONFIG.UPGRADE_STAT_PER_LEVEL.goldBonus;
+    if (typeof PrestigeSystem !== 'undefined') {
+      goldMult *= PrestigeSystem.getMultipliers().gold;
+    }
+    if (typeof AchievementSystem !== 'undefined') {
+      goldMult *= AchievementSystem.getBonusMultipliers().gold;
+    }
     var goldGained = Math.floor(GameState.monster.goldDrop * goldMult);
     GameState.hero.gold += goldGained;
     GameState.meta.totalGold += goldGained;
 
-    // EXP 보상
-    var expGained = GameState.monster.expDrop;
+    // EXP 배율: 프레스티지 + 업적
+    var expMult = 1;
+    if (typeof PrestigeSystem !== 'undefined') {
+      expMult *= PrestigeSystem.getMultipliers().exp;
+    }
+    if (typeof AchievementSystem !== 'undefined') {
+      expMult *= AchievementSystem.getBonusMultipliers().exp;
+    }
+    var expGained = Math.floor(GameState.monster.expDrop * expMult);
     var leveled = UpgradeSystem.addExp(expGained);
 
     // 통계
     GameState.meta.totalKills++;
     GameState.stage.killCount++;
+
+    // 업적 체크
+    if (typeof AchievementSystem !== 'undefined') {
+      AchievementSystem.check('kill', GameState.meta.totalKills);
+      AchievementSystem.check('gold', GameState.meta.totalGold);
+      AchievementSystem.check('singleGoldDrop', goldGained);
+      if (GameState.monster.isBoss) {
+        GameState.achievements.stats.bossKills++;
+        AchievementSystem.check('bossKill', GameState.achievements.stats.bossKills);
+      }
+    }
+
+    // 퀘스트 업데이트
+    if (typeof QuestSystem !== 'undefined') {
+      QuestSystem.updateProgress('kill', 1);
+      QuestSystem.updateProgress('gold', goldGained);
+      if (GameState.monster.isBoss) {
+        QuestSystem.updateProgress('killBoss', 1);
+      }
+    }
 
     // 장비 드롭 체크
     var droppedItem = null;
@@ -100,9 +133,13 @@ var MonsterSystem = {
       droppedItem = EquipmentSystem.tryDrop(GameState.stage.current);
       if (droppedItem) {
         var added = EquipmentSystem._addToInventory(droppedItem);
-        if (!added) droppedItem = null; // 인벤토리 가득 찼으면 드롭 취소
+        if (!added) droppedItem = null;
         if (droppedItem && scene && scene.events) {
           scene.events.emit('itemDropped', droppedItem);
+        }
+        // 전설 장비 업적
+        if (droppedItem && droppedItem.grade === 'legend' && typeof AchievementSystem !== 'undefined') {
+          AchievementSystem.check('legendEquip', 1);
         }
       }
     }
@@ -112,13 +149,24 @@ var MonsterSystem = {
       this.onStageComplete(scene);
     }
 
-    return { goldGained, expGained, leveled, droppedItem };
+    return { goldGained: goldGained, expGained: expGained, leveled: leveled, droppedItem: droppedItem };
   },
 
   onStageComplete: function(scene) {
     GameState.stage.current++;
     GameState.stage.killCount = 0;
     GameState.stage.isBoss = this.isBossStage(GameState.stage.current);
+
+    // 업적 체크
+    if (typeof AchievementSystem !== 'undefined') {
+      AchievementSystem.check('stage', GameState.stage.current);
+    }
+
+    // 퀘스트 업데이트
+    if (typeof QuestSystem !== 'undefined') {
+      QuestSystem.updateProgress('stage', 1);
+      QuestSystem.updateProgress('stageReach', 1);
+    }
 
     // 씬에 스테이지 변경 이벤트 발행
     if (scene && scene.events) {
