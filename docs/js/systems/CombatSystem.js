@@ -5,12 +5,14 @@ var CombatSystem = {
   monsterAttackTimer: 0,
   heroAttackCooldown: 0,
   monsterAttackCooldown: 2000,
+  poisonTimer: 0,
 
   init: function() {
     this.heroAttackTimer = 0;
     this.monsterAttackTimer = 0;
     this.heroAttackCooldown = spdToCooldown(GameState.hero.spd);
     this.monsterAttackCooldown = 2200;
+    this.poisonTimer = 0;
   },
 
   calculateDamage: function(atk, def, critChance, critMult) {
@@ -35,14 +37,48 @@ var CombatSystem = {
     if (this.heroAttackTimer >= this.heroAttackCooldown) {
       this.heroAttackTimer = 0;
 
+      // 광전사: 유효 ATK 계산
+      var effectiveAtk = GameState.hero.atk;
+      if (typeof SkillSystem !== 'undefined') {
+        effectiveAtk = Math.floor(GameState.hero.atk * SkillSystem.getBerserkerMult());
+      }
+
       var heroResult = this.calculateDamage(
-        GameState.hero.atk,
+        effectiveAtk,
         GameState.monster.def,
         GameState.hero.critChance,
         GameState.hero.critMult
       );
 
-      GameState.monster.hp = Math.max(0, GameState.monster.hp - heroResult.damage);
+      var totalDamage = heroResult.damage;
+
+      // 번개: 크리티컬 시 추가 피해
+      var thunderBonus = 0;
+      if (heroResult.isCrit && typeof SkillSystem !== 'undefined') {
+        thunderBonus = SkillSystem.getThunderBonus(heroResult.damage);
+        totalDamage += thunderBonus;
+      }
+
+      // 연타: 2번째 공격
+      var doubleStrike = false, doubleStrikeDmg = 0;
+      if (typeof SkillSystem !== 'undefined' && SkillSystem.rollDoubleStrike()) {
+        doubleStrike = true;
+        var second = this.calculateDamage(effectiveAtk, GameState.monster.def, GameState.hero.critChance, GameState.hero.critMult);
+        doubleStrikeDmg = second.damage;
+        totalDamage += doubleStrikeDmg;
+      }
+
+      GameState.monster.hp = Math.max(0, GameState.monster.hp - totalDamage);
+
+      // 흡혈: HP 회복
+      if (typeof SkillSystem !== 'undefined') {
+        SkillSystem.applyLifesteal(totalDamage);
+      }
+
+      // StatsTracker 데미지 기록
+      if (typeof StatsTracker !== 'undefined') {
+        StatsTracker.recordDamage(heroResult.damage, heroResult.isCrit);
+      }
 
       // 연속 크리티컬 추적 (비밀 업적 + 퀘스트)
       if (heroResult.isCrit) {
@@ -64,7 +100,11 @@ var CombatSystem = {
       events.push({
         type: 'heroAttack',
         damage: heroResult.damage,
+        totalDamage: totalDamage,
         isCrit: heroResult.isCrit,
+        thunderBonus: thunderBonus,
+        doubleStrike: doubleStrike,
+        doubleStrikeDmg: doubleStrikeDmg,
         targetDead: GameState.monster.hp <= 0
       });
     }
@@ -80,18 +120,24 @@ var CombatSystem = {
         1.5
       );
 
-      // 방어막 활성화 시 피해 50% 감소
+      // 강철 피부: 받는 피해 감소
       var actualDamage = monsterResult.damage;
-      if (GameState.shieldActive) {
-        actualDamage = Math.floor(actualDamage * 0.5);
+      if (typeof SkillSystem !== 'undefined') {
+        actualDamage = Math.max(1, actualDamage - SkillSystem.getIronSkinReduction());
       }
 
       GameState.hero.hp = Math.max(0, GameState.hero.hp - actualDamage);
+
+      // StatsTracker 피해 기록
+      if (typeof StatsTracker !== 'undefined') {
+        if (GameState.stats) GameState.stats.lifetime.totalDamageTaken += actualDamage;
+      }
+
       events.push({
         type: 'monsterAttack',
         damage: actualDamage,
         isCrit: monsterResult.isCrit,
-        shielded: GameState.shieldActive
+        shielded: false
       });
 
       // 영웅 사망 처리 (HP가 0이 되면 회복)
@@ -110,16 +156,25 @@ var CombatSystem = {
               AchievementSystem.check('deaths', GameState.achievements.stats.deaths);
             }
           }
+          // StatsTracker 사망 기록
+          if (typeof StatsTracker !== 'undefined') {
+            StatsTracker.recordDeath();
+          }
           events.push({ type: 'heroDeath' });
         }
       }
     }
 
-    // 스킬 시스템 처리 후 이벤트 병합
-    if (typeof SkillSystem !== 'undefined') {
-      var skillEvents = SkillSystem.processTick(delta);
-      for (var j = 0; j < skillEvents.length; j++) {
-        events.push(skillEvents[j]);
+    // 맹독 틱 (1초마다)
+    this.poisonTimer += delta;
+    if (this.poisonTimer >= 1000) {
+      this.poisonTimer -= 1000;
+      if (typeof SkillSystem !== 'undefined') {
+        var poisonDps = SkillSystem.getPoisonDps();
+        if (poisonDps > 0 && GameState.monster.hp > 0) {
+          GameState.monster.hp = Math.max(0, GameState.monster.hp - poisonDps);
+          events.push({ type: 'poison', damage: poisonDps, targetDead: GameState.monster.hp <= 0 });
+        }
       }
     }
 

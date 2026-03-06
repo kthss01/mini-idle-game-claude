@@ -207,5 +207,75 @@ var VFXManager = {
         if (heroSprite.active) heroSprite.setAlpha(1);
       }
     });
+  },
+
+  // 독 피해 숫자 (초록)
+  showPoisonNumber: function(scene, x, y, damage) {
+    var txt = scene.add.text(x + randomBetween(-10, 10), y - 10, '☠' + damage, {
+      fontSize: '14px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#44ff88',
+      stroke: '#000',
+      strokeThickness: 3
+    }).setDepth(51);
+
+    scene.tweens.add({
+      targets: txt,
+      y: txt.y - 40,
+      alpha: 0,
+      duration: 900,
+      ease: 'Power2',
+      onComplete: function() { txt.destroy(); }
+    });
+  },
+
+  // 스킬 발동 이펙트 (아이콘 + 링)
+  showSkillProc: function(scene, x, y, icon, color) {
+    color = color || 0xffffff;
+    var ring = scene.add.circle(x, y, 22, color, 0.25).setDepth(49);
+    var iconTxt = scene.add.text(x, y - 18, icon, {
+      fontSize: '18px'
+    }).setOrigin(0.5).setDepth(52);
+
+    scene.tweens.add({
+      targets: [ring, iconTxt],
+      scaleX: 1.8,
+      scaleY: 1.8,
+      alpha: 0,
+      duration: 500,
+      ease: 'Power2',
+      onComplete: function() { ring.destroy(); iconTxt.destroy(); }
+    });
+  },
+
+  // 아이템 드롭 알림
+  showItemDrop: function(scene, x, y, item) {
+    if (!item) return;
+    var color = (typeof ItemSystem !== 'undefined') ? ItemSystem.getRarityColor(item.rarity) : '#ffffff';
+    var border = (typeof ItemSystem !== 'undefined') ? ItemSystem.getRarityBorder(item.rarity) : '#888888';
+
+    // 배경 박스
+    var bg = scene.add.rectangle(x, y - 60, 140, 30, 0x000000, 0.85).setDepth(53);
+    bg.setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(border).color);
+
+    // 아이템 이름 텍스트
+    var txt = scene.add.text(x, y - 60, item.icon + ' ' + item.name, {
+      fontSize: '11px',
+      fontFamily: 'Arial, sans-serif',
+      color: color,
+      stroke: '#000',
+      strokeThickness: 2,
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(54);
+
+    scene.tweens.add({
+      targets: [bg, txt],
+      y: '-=35',
+      alpha: 0,
+      duration: 1800,
+      delay: 200,
+      ease: 'Power1',
+      onComplete: function() { bg.destroy(); txt.destroy(); }
+    });
   }
 };

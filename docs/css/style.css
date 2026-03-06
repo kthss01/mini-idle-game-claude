@@ -113,7 +113,7 @@ canvas {
 /* ===== 하단 스탯바 ===== */
 #stat-bar {
   position: absolute;
-  bottom: 120px;
+  bottom: 160px;
   left: 0;
   right: 0;
   display: flex;
@@ -1397,7 +1397,7 @@ canvas {
   transform: translateX(0);
 }
 
-/* ===== Phase 3: 상점 패널 (탭 구조) ===== */
+/* ===== Phase 3: 상점 패널 (탭 구조) — bottom-panel 으로 대체되어 숨김 ===== */
 #shop-panel {
   position: absolute;
   bottom: 0;
@@ -1406,7 +1406,7 @@ canvas {
   height: 112px;
   background: rgba(0, 0, 0, 0.85);
   border-top: 1px solid rgba(255,255,255,0.1);
-  display: flex;
+  display: none !important;
   flex-direction: column;
   pointer-events: all;
 }
@@ -2275,4 +2275,312 @@ canvas {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
+}
+
+/* ===== Phase N: 하단 탭 패널 ===== */
+#bottom-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 148px;
+  background: rgba(5, 5, 15, 0.92);
+  border-top: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  flex-direction: column;
+  pointer-events: all;
+  z-index: 15;
+}
+
+#panel-tabs {
+  display: flex;
+  height: 30px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.panel-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  pointer-events: all;
+}
+.panel-tab:last-child { border-right: none; }
+.panel-tab:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.panel-tab.active { background: rgba(255,255,255,0.10); color: #ffd700; border-bottom: 2px solid #ffd700; }
+
+#panel-contents { flex: 1; overflow: hidden; }
+
+.panel-content { display: none; height: 100%; padding: 4px 8px; overflow-x: auto; }
+.panel-content.active { display: flex; align-items: center; gap: 6px; }
+
+/* 업그레이드 카드 */
+.upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.bp-upgrade-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72px;
+  height: 66px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  gap: 2px;
+  padding: 4px 2px;
+  transition: all 0.12s;
+}
+.bp-upgrade-btn:hover:not(:disabled) { background: rgba(255,215,0,0.12); border-color: rgba(255,215,0,0.5); }
+.bp-upgrade-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bp-btn-icon { font-size: 16px; }
+.bp-btn-name { font-size: 9px; color: rgba(255,255,255,0.8); }
+.bp-btn-lv { font-size: 9px; color: #4ecdc4; }
+.bp-btn-cost { font-size: 9px; color: #ffd700; font-weight: 600; }
+
+.auto-toggle {
+  width: 72px;
+  height: 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: rgba(255,255,255,0.5);
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.auto-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.auto-toggle.auto-on {
+  background: rgba(46,204,113,0.2);
+  border-color: #2ecc71;
+  color: #2ecc71;
+}
+
+/* 패시브 스킬 버튼 */
+.skill-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 76px;
+  height: 108px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  padding: 6px 4px;
+  gap: 3px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.skill-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); transform: translateY(-2px); }
+.skill-btn:disabled { cursor: default; }
+.skill-btn.locked { opacity: 0.45; filter: grayscale(0.6); }
+.skill-btn.can-learn {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255,215,0,0.4);
+  animation: skill-glow 1.5s ease-in-out infinite alternate;
+}
+.skill-btn.maxed { border-color: #9b59b6; background: rgba(155,89,182,0.15); }
+.skill-btn .skill-icon { font-size: 22px; }
+.skill-btn .skill-name { font-size: 10px; font-weight: 600; }
+.skill-btn .skill-lv { font-size: 9px; color: #4ecdc4; }
+.skill-btn .skill-unlock { font-size: 9px; color: rgba(255,255,255,0.4); }
+
+@keyframes skill-glow {
+  from { box-shadow: 0 0 5px rgba(255,215,0,0.3); }
+  to   { box-shadow: 0 0 14px rgba(255,215,0,0.7); }
+}
+
+/* 장비 탭 */
+#item-equip-area, #item-inv-area {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.section-label {
+  font-size: 9px;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+#item-equip-slots, #item-inv-slots {
+  display: flex;
+  gap: 4px;
+}
+.item-equip-slot {
+  width: 70px;
+  height: 80px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 2px;
+  padding: 4px;
+  transition: all 0.12s;
+}
+.item-equip-slot:hover { background: rgba(255,255,255,0.08); }
+.item-equip-slot.equipped { border-width: 2px; }
+.item-slot-icon { font-size: 20px; }
+.item-slot-name { font-size: 9px; color: rgba(255,255,255,0.5); text-align: center; word-break: break-all; }
+
+.item-inv-slot {
+  width: 60px;
+  height: 80px;
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 2px;
+  padding: 3px;
+  font-size: 9px;
+  transition: all 0.12s;
+}
+.item-inv-slot.has-item { border-style: solid; border-width: 2px; }
+.item-inv-slot.has-item:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+.item-inv-slot.empty-inv { cursor: default; }
+.item-inv-icon { font-size: 18px; }
+.item-inv-name { font-size: 8px; font-weight: 600; text-align: center; line-height: 1.2; }
+.item-inv-stats { font-size: 7px; color: rgba(255,255,255,0.4); text-align: center; }
+
+/* 스테이지 맵 모달 */
+#stage-map-modal {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  pointer-events: all;
+}
+#stage-map-modal.visible { display: flex; }
+
+#stage-map-inner {
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 14px;
+  width: 480px;
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#stage-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+#stage-map-close {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#stage-map-close:hover { background: rgba(255,255,255,0.2); }
+
+#stage-map-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 280px;
+}
+
+.stage-cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  position: relative;
+  border: 1px solid transparent;
+}
+.stage-num { font-size: 10px; line-height: 1; }
+.boss-crown { font-size: 9px; }
+
+.stage-cell.current { background: #2980b9; border-color: #3498db; color: #fff; box-shadow: 0 0 6px rgba(52,152,219,0.6); }
+.stage-cell.boss { background: rgba(231,76,60,0.25); border-color: #e74c3c; color: #e74c3c; }
+.stage-cell.boss-cleared { background: rgba(100,30,30,0.5); border-color: #8e2020; color: #c77; }
+.stage-cell.cleared { background: rgba(46,204,113,0.2); border-color: #27ae60; color: #2ecc71; }
+.stage-cell.future { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.25); }
+
+#stage-map-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+}
+.legend-item { color: rgba(255,255,255,0.6); }
+.current-l { color: #3498db; }
+.boss-l { color: #e74c3c; }
+.cleared-l { color: #2ecc71; }
+.future-l { color: rgba(255,255,255,0.3); }
+
+/* 맵 버튼 */
+#map-btn {
+  position: absolute;
+  top: 8px;
+  right: 140px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  z-index: 20;
+  transition: background 0.15s;
+}
+#map-btn:hover { background: rgba(255,255,255,0.15); }
+
+/* 스킬 포인트 강조 */
+.stat-value.has-points {
+  color: #ffd700 !important;
+  animation: pulse-gold 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-gold {
+  from { text-shadow: 0 0 4px rgba(255,215,0,0.4); }
+  to   { text-shadow: 0 0 10px rgba(255,215,0,0.9); }
 }

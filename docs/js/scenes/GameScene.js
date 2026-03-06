@@ -29,6 +29,11 @@ class GameScene extends Phaser.Scene {
     // 전투 시스템 초기화
     CombatSystem.init();
 
+    // StatsTracker 초기화
+    if (typeof StatsTracker !== 'undefined') {
+      StatsTracker.init();
+    }
+
     // 펫 스프라이트 생성
     this._createPet();
 
@@ -69,6 +74,11 @@ class GameScene extends Phaser.Scene {
       SaveSystem.save();
     }
 
+    // StatsTracker 틱
+    if (typeof StatsTracker !== 'undefined') {
+      StatsTracker.processTick(delta);
+    }
+
     // 상점 시스템 틱
     if (typeof ShopSystem !== 'undefined') {
       ShopSystem.processTick(delta);
@@ -91,6 +101,8 @@ class GameScene extends Phaser.Scene {
         this._onHeroDeath();
       } else if (ev.type === 'skillActivated') {
         this._onSkillActivated(ev);
+      } else if (ev.type === 'poison') {
+        this._onPoisonTick(ev);
       }
     }
 
@@ -333,6 +345,17 @@ class GameScene extends Phaser.Scene {
     VFXManager.showHitEffect(this, mx + randomBetween(-15, 15), my + randomBetween(-15, 15), GameState.monster.color);
     VFXManager.showDamageNumber(this, mx, my - GameState.monster.size * 0.7, ev.damage, ev.isCrit);
 
+    // 번개 VFX
+    if (ev.thunderBonus > 0) {
+      VFXManager.showDamageNumber(this, mx + 30, my - GameState.monster.size - 10, ev.thunderBonus, false);
+      VFXManager.showSkillProc(this, mx, my, '⚡', 0xffff00);
+    }
+    // 연타 VFX
+    if (ev.doubleStrike) {
+      VFXManager.showDamageNumber(this, mx - 25, my - GameState.monster.size * 0.5, ev.doubleStrikeDmg, false);
+      VFXManager.showSkillProc(this, mx - 20, my - 10, '🌀', 0x88aaff);
+    }
+
     // 몬스터 피격 흔들림
     if (this.monsterContainer) {
       this.tweens.add({
@@ -440,6 +463,11 @@ class GameScene extends Phaser.Scene {
       VFXManager.showLevelUp(this);
     }
 
+    // ItemSystem 드롭 VFX
+    if (result.droppedItemSimple) {
+      VFXManager.showItemDrop(this, mx, my, result.droppedItemSimple);
+    }
+
     // 다음 몬스터 스폰 (짧은 딜레이)
     this.time.delayedCall(400, function() {
       if (!this.stageTransitioning) {
@@ -447,6 +475,7 @@ class GameScene extends Phaser.Scene {
         this._createMonster();
         CombatSystem.heroAttackTimer = 0;
         CombatSystem.monsterAttackTimer = 0;
+        CombatSystem.poisonTimer = 0;
         this.monsterIsDead = false; // 플래그 초기화
       }
     }.bind(this));
@@ -464,6 +493,17 @@ class GameScene extends Phaser.Scene {
       this._createMonster();
       CombatSystem.heroAttackTimer = 0;
       CombatSystem.monsterAttackTimer = 0;
+      CombatSystem.poisonTimer = 0;
     }.bind(this));
+  }
+
+  _onPoisonTick(ev) {
+    var mx = CONFIG.MONSTER_X;
+    var my = CONFIG.MONSTER_Y;
+    VFXManager.showPoisonNumber(this, mx, my - GameState.monster.size * 0.5, ev.damage);
+    if (ev.targetDead && !this.monsterIsDead) {
+      this.monsterIsDead = true;
+      this._onMonsterDead();
+    }
   }
 }

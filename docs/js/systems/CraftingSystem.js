@@ -43,6 +43,10 @@ var CraftingSystem = {
   craft: function(recipeId) {
     if (!this.canCraft(recipeId)) return null;
     var recipe = this._getRecipe(recipeId);
+    // StatsTracker 제작 기록 (성공 시점에 기록 - 재료 차감 전)
+    if (typeof StatsTracker !== 'undefined') {
+      StatsTracker.recordCraft();
+    }
 
     // 재료 차감
     for (var matId in recipe.cost) {

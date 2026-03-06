@@ -41,6 +41,7 @@ var PrestigeSystem = {
     GameState.prestige.soulStones += stones;
     GameState.prestige.totalSoulStones += stones;
     GameState.prestige.count++;
+    if (GameState.stats) GameState.stats.lifetime.totalPrestige++;
 
     // hero 초기화
     GameState.hero.level = 1;
@@ -53,12 +54,28 @@ var PrestigeSystem = {
       GameState.upgrades[ukeys[i]] = 0;
     }
 
-    // skills 초기화
+    // skills 초기화 (패시브 스킬)
     if (GameState.skills) {
-      var skeys = ['powerStrike', 'shield', 'drain'];
-      for (var j = 0; j < skeys.length; j++) {
-        var sk = GameState.skills[skeys[j]];
-        if (sk) { sk.level = 0; sk.timer = 0; sk.unlocked = false; }
+      GameState.skills.points      = 0;
+      GameState.skills.lifesteal   = 0;
+      GameState.skills.berserker   = 0;
+      GameState.skills.ironSkin    = 0;
+      GameState.skills.doubleStrike= 0;
+      GameState.skills.poison      = 0;
+      GameState.skills.thunder     = 0;
+    }
+
+    // items 초기화 (ItemSystem)
+    if (GameState.items) {
+      GameState.items.equipped  = { weapon: null, armor: null, accessory: null };
+      GameState.items.inventory = [];
+    }
+
+    // autoUpgrade 초기화
+    if (GameState.autoUpgrade) {
+      var auKeys = ['atk', 'def', 'hp', 'spd', 'critChance', 'goldBonus'];
+      for (var k = 0; k < auKeys.length; k++) {
+        GameState.autoUpgrade[auKeys[k]] = false;
       }
     }
 

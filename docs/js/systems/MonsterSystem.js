@@ -98,6 +98,12 @@ var MonsterSystem = {
     GameState.hero.gold += goldGained;
     GameState.meta.totalGold += goldGained;
 
+    // StatsTracker 기록
+    if (typeof StatsTracker !== 'undefined') {
+      StatsTracker.recordKill(GameState.monster.isBoss);
+      StatsTracker.recordGold(goldGained);
+    }
+
     // EXP 배율: 프레스티지 + 업적 + EXP부스터
     var expMult = 1;
     if (typeof PrestigeSystem !== 'undefined') {
@@ -136,6 +142,18 @@ var MonsterSystem = {
       }
     }
 
+    // ItemSystem 장비 드롭
+    var droppedItemSimple = null;
+    if (typeof ItemSystem !== 'undefined') {
+      droppedItemSimple = ItemSystem.tryDrop(GameState.monster.isBoss, GameState.stage.current);
+      if (droppedItemSimple) {
+        ItemSystem.addToInventory(droppedItemSimple);
+        if (typeof StatsTracker !== 'undefined') {
+          StatsTracker.recordEquipDrop();
+        }
+      }
+    }
+
     // 장비 드롭 체크 (펫 dropRate 반영)
     var droppedItem = null;
     if (typeof EquipmentSystem !== 'undefined') {
@@ -150,6 +168,10 @@ var MonsterSystem = {
         // 전설 장비 업적
         if (droppedItem && droppedItem.grade === 'legend' && typeof AchievementSystem !== 'undefined') {
           AchievementSystem.check('legendEquip', 1);
+        }
+        // StatsTracker 장비 드롭 기록
+        if (droppedItem && typeof StatsTracker !== 'undefined') {
+          StatsTracker.recordEquipDrop();
         }
       }
     }
@@ -180,10 +202,16 @@ var MonsterSystem = {
       this.onStageComplete(scene);
     }
 
-    return { goldGained: goldGained, expGained: expGained, leveled: leveled, droppedItem: droppedItem, droppedMaterial: droppedMaterial };
+    return { goldGained: goldGained, expGained: expGained, leveled: leveled, droppedItem: droppedItem, droppedItemSimple: droppedItemSimple, droppedMaterial: droppedMaterial };
   },
 
   onStageComplete: function(scene) {
+    // StatsTracker 스테이지 클리어 기록
+    if (typeof StatsTracker !== 'undefined') {
+      var clearTimeMs = Date.now() - StatsTracker._stageStartTime;
+      StatsTracker.recordStageClear(GameState.stage.current, clearTimeMs);
+    }
+
     GameState.stage.current++;
     GameState.stage.killCount = 0;
     GameState.stage.isBoss = this.isBossStage(GameState.stage.current);

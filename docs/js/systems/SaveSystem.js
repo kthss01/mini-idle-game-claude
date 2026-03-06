@@ -41,9 +41,18 @@ var SaveSystem = {
         lastSaveTime: Date.now()
       },
       skills: GameState.skills ? {
-        powerStrike: { level: GameState.skills.powerStrike.level, unlocked: GameState.skills.powerStrike.unlocked },
-        shield:      { level: GameState.skills.shield.level,      unlocked: GameState.skills.shield.unlocked },
-        drain:       { level: GameState.skills.drain.level,       unlocked: GameState.skills.drain.unlocked }
+        points:      GameState.skills.points      || 0,
+        lifesteal:   GameState.skills.lifesteal   || 0,
+        berserker:   GameState.skills.berserker   || 0,
+        ironSkin:    GameState.skills.ironSkin     || 0,
+        doubleStrike:GameState.skills.doubleStrike || 0,
+        poison:      GameState.skills.poison      || 0,
+        thunder:     GameState.skills.thunder     || 0
+      } : null,
+      autoUpgrade: GameState.autoUpgrade ? Object.assign({}, GameState.autoUpgrade) : null,
+      itemsSimple: GameState.items ? {
+        equipped:  GameState.items.equipped,
+        inventory: GameState.items.inventory
       } : null,
       equipment: GameState.equipment ? {
         equipped: GameState.equipment.equipped,
@@ -166,6 +175,7 @@ var SaveSystem = {
 
     // v5 → v6: stats.lifetime 필드 추가
     if (saveData.version < 6) {
+
       saveData.stats = saveData.stats || {};
       saveData.stats.lifetime = saveData.stats.lifetime || {
         totalDamageDealt: 0, totalDamageTaken: 0, totalGoldEarned: 0,
@@ -174,6 +184,24 @@ var SaveSystem = {
         peakDps: 0, totalEquipDrops: 0, stagesCleared: 0
       };
       saveData.version = 6;
+    }
+
+    // v6 → v7: 패시브 스킬/autoUpgrade/itemsSimple 추가
+    if (saveData.version < 7) {
+      // 기존 active skills → 초기화 (하위호환 불가, 리셋)
+      saveData.skills = {
+        points: 0, lifesteal: 0, berserker: 0, ironSkin: 0,
+        doubleStrike: 0, poison: 0, thunder: 0
+      };
+      saveData.autoUpgrade = {
+        atk: false, def: false, hp: false,
+        spd: false, critChance: false, goldBonus: false
+      };
+      saveData.itemsSimple = {
+        equipped: { weapon: null, armor: null, accessory: null },
+        inventory: []
+      };
+      saveData.version = 7;
     }
 
     return saveData;
@@ -246,18 +274,34 @@ var SaveSystem = {
     GameState.meta.playTime = m.playTime || 0;
     GameState.meta.lastSaveTime = m.lastSaveTime || Date.now();
 
-    // skills 복원
+    // 패시브 skills 복원
     if (GameState.skills && saveData.skills) {
       var sk = saveData.skills;
-      var keys = ['powerStrike', 'shield', 'drain'];
-      for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        if (sk[key] && GameState.skills[key]) {
-          GameState.skills[key].level   = sk[key].level   || 0;
-          GameState.skills[key].unlocked = sk[key].unlocked || false;
-          GameState.skills[key].timer   = 0;
-        }
-      }
+      GameState.skills.points      = sk.points      || 0;
+      GameState.skills.lifesteal   = sk.lifesteal   || 0;
+      GameState.skills.berserker   = sk.berserker   || 0;
+      GameState.skills.ironSkin    = sk.ironSkin     || 0;
+      GameState.skills.doubleStrike= sk.doubleStrike || 0;
+      GameState.skills.poison      = sk.poison      || 0;
+      GameState.skills.thunder     = sk.thunder     || 0;
+    }
+
+    // autoUpgrade 복원
+    if (GameState.autoUpgrade && saveData.autoUpgrade) {
+      var au = saveData.autoUpgrade;
+      GameState.autoUpgrade.atk        = au.atk        || false;
+      GameState.autoUpgrade.def        = au.def        || false;
+      GameState.autoUpgrade.hp         = au.hp         || false;
+      GameState.autoUpgrade.spd        = au.spd        || false;
+      GameState.autoUpgrade.critChance = au.critChance || false;
+      GameState.autoUpgrade.goldBonus  = au.goldBonus  || false;
+    }
+
+    // itemsSimple 복원
+    if (GameState.items && saveData.itemsSimple) {
+      var it = saveData.itemsSimple;
+      GameState.items.equipped  = it.equipped  || { weapon: null, armor: null, accessory: null };
+      GameState.items.inventory = it.inventory || [];
     }
 
     // equipment 복원

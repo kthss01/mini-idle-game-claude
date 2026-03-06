@@ -16,6 +16,7 @@ class UIScene extends Phaser.Scene {
     this._statsRefreshTimer = null;
     this._dpsWidgetOpen = false;
     this._activeSettingsTab = 'config';
+    this._activeBottomTab = 'upgrade';
   }
 
   create() {
@@ -29,8 +30,9 @@ class UIScene extends Phaser.Scene {
     this._buildQuestSidebar();
     this._buildPetModal();
     this._buildCraftingModal();
-
     this._buildDpsWidget();
+    this._buildBottomPanel();
+    this._buildStageMapModal();
 
     UISceneInstance = this;
     this.onGameUpdate();
@@ -52,6 +54,8 @@ class UIScene extends Phaser.Scene {
     this._updatePetSlot();
     this._updateHudBuffs();
     this._updateDpsWidget();
+    this._processAutoUpgrade();
+    this._updateBottomPanel();
   }
 
   // ===== HUD 빌드 =====
@@ -132,6 +136,10 @@ class UIScene extends Phaser.Scene {
         <div class="stat-label">EXP</div>
         <div class="stat-value" id="stat-exp">0%</div>
       </div>
+      <div class="stat-item">
+        <div class="stat-label">스킬P</div>
+        <div class="stat-value" id="stat-sp">0</div>
+      </div>
     `;
     overlay.appendChild(statBar);
 
@@ -144,6 +152,16 @@ class UIScene extends Phaser.Scene {
       self._openPrestigeConfirm();
     };
     overlay.appendChild(prestigeBtn);
+
+    // 맵 버튼
+    var mapBtn = document.createElement('button');
+    mapBtn.id = 'map-btn';
+    mapBtn.innerHTML = '🗺️';
+    mapBtn.title = '스테이지 맵';
+    mapBtn.onclick = function() {
+      self._openStageMap();
+    };
+    overlay.appendChild(mapBtn);
 
     // 제작 버튼
     var craftingBtn = document.createElement('button');
@@ -172,154 +190,18 @@ class UIScene extends Phaser.Scene {
     overlay.appendChild(lvBanner);
   }
 
-  // ===== 스킬 바 빌드 =====
+  // ===== 스킬 바 (패시브 스킬로 변경 — bottom panel의 skill 탭 사용) =====
   _buildSkillBar() {
-    var overlay = document.getElementById('ui-overlay');
-    var self = this;
-
-    var skillDefs = [
-      { key: 'powerStrike' },
-      { key: 'shield' },
-      { key: 'drain' }
-    ];
-
-    var bar = document.createElement('div');
-    bar.id = 'skill-bar';
-
-    skillDefs.forEach(function(def) {
-      var key = def.key;
-      var skill = SkillSystem.SKILLS[key];
-
-      var slot = document.createElement('div');
-      slot.className = 'skill-slot locked';
-      slot.id = 'skill-' + key;
-      slot.innerHTML = `
-        <div class="skill-icon">${skill.icon}</div>
-        <div class="skill-name">${skill.name}</div>
-        <div class="skill-cd-bar"><div class="skill-cd-fill" id="skill-cd-${key}"></div></div>
-        <div class="skill-level" id="skill-lv-${key}">Lv.${skill.unlockLevel} 해금</div>
-      `;
-
-      slot.onclick = function() {
-        self._openSkillPopup(key);
-      };
-
-      bar.appendChild(slot);
-    });
-
-    // 스킬 업그레이드 팝업
-    var popup = document.createElement('div');
-    popup.id = 'skill-popup';
-    popup.innerHTML = `
-      <button id="skill-popup-close">✕</button>
-      <div id="skill-popup-icon"></div>
-      <h3 id="skill-popup-name"></h3>
-      <div class="skill-popup-row"><span>현재 레벨</span><span id="skill-popup-lv"></span></div>
-      <div class="skill-popup-row"><span>현재 효과</span><span id="skill-popup-cur"></span></div>
-      <div class="skill-popup-row"><span>다음 레벨</span><span id="skill-popup-next"></span></div>
-      <div class="skill-popup-cost" id="skill-popup-cost"></div>
-      <button id="skill-popup-upgrade">업그레이드</button>
-    `;
-    overlay.appendChild(popup);
-
-    document.getElementById('skill-popup-close').onclick = function() {
-      popup.classList.remove('visible');
-      self._skillPopupKey = null;
-    };
-    document.getElementById('skill-popup-upgrade').onclick = function() {
-      if (self._skillPopupKey) {
-        if (SkillSystem.upgradeSkill(self._skillPopupKey)) {
-          self._refreshSkillPopup(self._skillPopupKey);
-          self._updateSkillBar();
-        }
-      }
-    };
-
-    overlay.appendChild(bar);
-  }
-
-  _openSkillPopup(key) {
-    this._skillPopupKey = key;
-    this._refreshSkillPopup(key);
-    document.getElementById('skill-popup').classList.add('visible');
-  }
-
-  _refreshSkillPopup(key) {
-    var skill = SkillSystem.SKILLS[key];
-    var skillState = GameState.skills[key];
-    var popup = document.getElementById('skill-popup');
-    if (!popup) return;
-
-    document.getElementById('skill-popup-icon').textContent = skill.icon;
-    document.getElementById('skill-popup-name').textContent = skill.name;
-    document.getElementById('skill-popup-lv').textContent =
-      skillState.level + ' / ' + skill.maxLevel;
-    document.getElementById('skill-popup-cur').textContent =
-      skillState.level > 0 ? SkillSystem.getCurrentDesc(key) : '(미강화)';
-
-    var isMaxLevel = skillState.level >= skill.maxLevel;
-    document.getElementById('skill-popup-next').textContent =
-      isMaxLevel ? '최대 레벨' : SkillSystem.getNextLevelDesc(key);
-
-    var costEl = document.getElementById('skill-popup-cost');
-    var upgradeBtn = document.getElementById('skill-popup-upgrade');
-
-    if (isMaxLevel) {
-      costEl.textContent = '최대 레벨 달성!';
-      upgradeBtn.disabled = true;
-    } else if (!skillState.unlocked) {
-      costEl.textContent = 'Lv.' + skill.unlockLevel + ' 해금';
-      upgradeBtn.disabled = true;
-    } else {
-      var cost = SkillSystem.getSkillCost(key);
-      costEl.textContent = '💰 ' + formatNumber(cost);
-      upgradeBtn.disabled = GameState.hero.gold < cost;
-    }
+    // 패시브 스킬은 _buildBottomPanel()의 skill 탭에서 처리
+    // 기존 active skill bar는 비워둠
   }
 
   _updateSkillBar() {
-    if (typeof SkillSystem === 'undefined') return;
-    var keys = ['powerStrike', 'shield', 'drain'];
-
-    keys.forEach(function(key) {
-      var slot = document.getElementById('skill-' + key);
-      if (!slot) return;
-
-      var skillState = GameState.skills[key];
-      var skill = SkillSystem.SKILLS[key];
-      var lvEl = document.getElementById('skill-lv-' + key);
-      var fillEl = document.getElementById('skill-cd-' + key);
-
-      if (!skillState.unlocked) {
-        slot.className = 'skill-slot locked';
-        if (lvEl) lvEl.textContent = 'Lv.' + skill.unlockLevel + ' 해금';
-        if (fillEl) fillEl.style.width = '0%';
-      } else {
-        slot.className = 'skill-slot';
-        if (lvEl) lvEl.textContent = 'Lv.' + skillState.level;
-        if (fillEl) {
-          var cooldown = SkillSystem.getCooldown(key);
-          var pct = Math.min(100, skillState.timer / cooldown * 100);
-          fillEl.style.width = pct + '%';
-          if (key === 'shield' && GameState.shieldActive) {
-            fillEl.style.background = '#3498db';
-          } else {
-            fillEl.style.background = '';
-          }
-        }
-      }
-    });
-
-    if (this._skillPopupKey) {
-      this._refreshSkillPopup(this._skillPopupKey);
-    }
+    // bottom panel의 skill 탭에서 처리
   }
 
   highlightSkillSlot(key) {
-    var slot = document.getElementById('skill-' + key);
-    if (!slot) return;
-    slot.classList.add('activating');
-    setTimeout(function() { slot.classList.remove('activating'); }, 400);
+    // 구 active skill bar 호환 유지용 (no-op)
   }
 
   // ===== 상점 패널 빌드 (강화 / 소모품 / 버프 탭) =====
@@ -1576,6 +1458,18 @@ class UIScene extends Phaser.Scene {
       if (el) el.textContent = els[id];
     }
 
+    // 스킬 포인트 표시
+    var spEl = document.getElementById('stat-sp');
+    if (spEl && GameState.skills) {
+      var pts = GameState.skills.points || 0;
+      spEl.textContent = pts;
+      if (pts > 0) {
+        spEl.classList.add('has-points');
+      } else {
+        spEl.classList.remove('has-points');
+      }
+    }
+
     // 세팅 패널 정보 업데이트
     var infoPlaytime = document.getElementById('info-playtime');
     var infoKills = document.getElementById('info-kills');
@@ -2017,5 +1911,352 @@ class UIScene extends Phaser.Scene {
       toast.classList.remove('visible');
       setTimeout(function() { toast.remove(); }, 400);
     }, 2000);
+  }
+
+  // ===== 하단 탭 패널 (업그레이드 / 스킬 / 장비) =====
+  _buildBottomPanel() {
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var panel = document.createElement('div');
+    panel.id = 'bottom-panel';
+
+    // 탭 바
+    var tabBar = document.createElement('div');
+    tabBar.id = 'panel-tabs';
+    tabBar.innerHTML = `
+      <button class="panel-tab active" data-tab="upgrade">⚔️ 업그레이드</button>
+      <button class="panel-tab" data-tab="skill">✨ 스킬</button>
+      <button class="panel-tab" data-tab="item">🎒 장비</button>
+    `;
+    panel.appendChild(tabBar);
+
+    // 탭 콘텐츠 컨테이너
+    var contents = document.createElement('div');
+    contents.id = 'panel-contents';
+
+    // --- 업그레이드 탭 ---
+    var upgradeContent = document.createElement('div');
+    upgradeContent.className = 'panel-content active';
+    upgradeContent.dataset.content = 'upgrade';
+
+    var upgrades = [
+      { key: 'atk',        icon: '⚔',  name: 'ATK' },
+      { key: 'def',        icon: '🛡',  name: 'DEF' },
+      { key: 'hp',         icon: '❤',  name: 'HP' },
+      { key: 'spd',        icon: '⚡',  name: 'SPD' },
+      { key: 'critChance', icon: '💫',  name: 'CRIT' },
+      { key: 'goldBonus',  icon: '💰',  name: 'GOLD' }
+    ];
+
+    upgrades.forEach(function(upg) {
+      var card = document.createElement('div');
+      card.className = 'upgrade-card';
+
+      var btn = document.createElement('button');
+      btn.className = 'bp-upgrade-btn';
+      btn.id = 'bp-upg-' + upg.key;
+      btn.innerHTML = `<span class="bp-btn-icon">${upg.icon}</span><span class="bp-btn-name">${upg.name}</span><span class="bp-btn-lv" id="bp-upg-lv-${upg.key}">0</span><span class="bp-btn-cost" id="bp-upg-cost-${upg.key}">-</span>`;
+      btn.onclick = function() {
+        if (UpgradeSystem.applyUpgrade(upg.key)) {
+          self._updateStatBar();
+          self._updateHPBars();
+        }
+      };
+
+      var autoBtn = document.createElement('button');
+      autoBtn.className = 'auto-toggle';
+      autoBtn.id = 'auto-' + upg.key;
+      autoBtn.textContent = '🔄 자동';
+      autoBtn.onclick = function() {
+        if (GameState.autoUpgrade) {
+          GameState.autoUpgrade[upg.key] = !GameState.autoUpgrade[upg.key];
+          autoBtn.classList.toggle('auto-on', GameState.autoUpgrade[upg.key]);
+        }
+      };
+
+      card.appendChild(btn);
+      card.appendChild(autoBtn);
+      upgradeContent.appendChild(card);
+    });
+    contents.appendChild(upgradeContent);
+
+    // --- 스킬 탭 ---
+    var skillContent = document.createElement('div');
+    skillContent.className = 'panel-content';
+    skillContent.dataset.content = 'skill';
+
+    if (typeof SkillSystem !== 'undefined') {
+      SkillSystem.SKILLS.forEach(function(def) {
+        var btn = document.createElement('button');
+        btn.className = 'skill-btn locked';
+        btn.id = 'passive-skill-' + def.key;
+        btn.innerHTML = `
+          <div class="skill-icon">${def.icon}</div>
+          <div class="skill-name">${def.name}</div>
+          <div class="skill-lv" id="passive-lv-${def.key}">Lv.0/5</div>
+          <div class="skill-unlock" id="passive-unlock-${def.key}">Lv.${def.unlockLevel} 해금</div>
+        `;
+        btn.onclick = function() {
+          if (typeof SkillSystem !== 'undefined' && SkillSystem.upgradeSkill(def.key)) {
+            self._updateBottomPanel();
+            self._updateStatBar();
+          }
+        };
+        skillContent.appendChild(btn);
+      });
+    }
+    contents.appendChild(skillContent);
+
+    // --- 장비 탭 ---
+    var itemContent = document.createElement('div');
+    itemContent.className = 'panel-content';
+    itemContent.dataset.content = 'item';
+
+    // 장착 슬롯
+    var equipArea = document.createElement('div');
+    equipArea.id = 'item-equip-area';
+    equipArea.innerHTML = '<div class="section-label">장착</div>';
+    var equipSlots = document.createElement('div');
+    equipSlots.id = 'item-equip-slots';
+    ['weapon', 'armor', 'accessory'].forEach(function(slot) {
+      var slotEl = document.createElement('div');
+      slotEl.className = 'item-equip-slot empty';
+      slotEl.id = 'item-slot-' + slot;
+      slotEl.dataset.slot = slot;
+      var icons = { weapon: '⚔️', armor: '🛡️', accessory: '💎' };
+      slotEl.innerHTML = `<div class="item-slot-icon">${icons[slot]}</div><div class="item-slot-name">비어있음</div>`;
+      slotEl.onclick = function() {
+        if (typeof ItemSystem !== 'undefined') {
+          ItemSystem.unequipItem(slot);
+          self._updateBottomPanel();
+        }
+      };
+      equipSlots.appendChild(slotEl);
+    });
+    equipArea.appendChild(equipSlots);
+    itemContent.appendChild(equipArea);
+
+    // 인벤토리
+    var invArea = document.createElement('div');
+    invArea.id = 'item-inv-area';
+    invArea.innerHTML = '<div class="section-label">인벤토리</div>';
+    var invSlots = document.createElement('div');
+    invSlots.id = 'item-inv-slots';
+    for (var i = 0; i < 6; i++) {
+      var invSlot = document.createElement('div');
+      invSlot.className = 'item-inv-slot empty-inv';
+      invSlot.id = 'item-inv-' + i;
+      invSlots.appendChild(invSlot);
+    }
+    invArea.appendChild(invSlots);
+    itemContent.appendChild(invArea);
+
+    contents.appendChild(itemContent);
+    panel.appendChild(contents);
+    overlay.appendChild(panel);
+
+    // 탭 전환
+    tabBar.querySelectorAll('.panel-tab').forEach(function(tab) {
+      tab.onclick = function() {
+        tabBar.querySelectorAll('.panel-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        self._activeBottomTab = tab.dataset.tab;
+        contents.querySelectorAll('.panel-content').forEach(function(c) { c.classList.remove('active'); });
+        var target = contents.querySelector('[data-content="' + tab.dataset.tab + '"]');
+        if (target) target.classList.add('active');
+        self._updateBottomPanel();
+      };
+    });
+  }
+
+  _updateBottomPanel() {
+    var tab = this._activeBottomTab;
+    if (tab === 'upgrade') this._updateUpgradeTab();
+    else if (tab === 'skill') this._updateSkillTab();
+    else if (tab === 'item') this._updateItemTab();
+  }
+
+  _updateUpgradeTab() {
+    var types = ['atk', 'def', 'hp', 'spd', 'critChance', 'goldBonus'];
+    types.forEach(function(type) {
+      var lvEl = document.getElementById('bp-upg-lv-' + type);
+      var costEl = document.getElementById('bp-upg-cost-' + type);
+      var btn = document.getElementById('bp-upg-' + type);
+      if (!lvEl || !costEl || !btn) return;
+
+      var lv = GameState.upgrades[type] || 0;
+      var cost = UpgradeSystem.getCost(type);
+      lvEl.textContent = lv;
+      costEl.textContent = '💰' + formatNumber(cost);
+      btn.disabled = !UpgradeSystem.canAfford(type);
+
+      var autoBtn = document.getElementById('auto-' + type);
+      if (autoBtn && GameState.autoUpgrade) {
+        autoBtn.classList.toggle('auto-on', !!GameState.autoUpgrade[type]);
+      }
+    });
+  }
+
+  _updateSkillTab() {
+    if (typeof SkillSystem === 'undefined') return;
+    SkillSystem.SKILLS.forEach(function(def) {
+      var btn = document.getElementById('passive-skill-' + def.key);
+      var lvEl = document.getElementById('passive-lv-' + def.key);
+      var unlockEl = document.getElementById('passive-unlock-' + def.key);
+      if (!btn) return;
+
+      var level = (GameState.skills && GameState.skills[def.key]) || 0;
+      var isUnlocked = SkillSystem.isUnlocked(def.key);
+      var isMax = level >= def.values.length;
+      var canUp = SkillSystem.canUpgrade(def.key);
+
+      btn.className = 'skill-btn' + (isMax ? ' maxed' : isUnlocked ? (canUp ? ' can-learn' : '') : ' locked');
+      if (lvEl) lvEl.textContent = 'Lv.' + level + '/' + def.values.length;
+      if (unlockEl) {
+        if (!isUnlocked) {
+          unlockEl.textContent = 'Lv.' + def.unlockLevel + ' 해금';
+          unlockEl.style.display = '';
+        } else if (isMax) {
+          unlockEl.textContent = '최대 레벨';
+          unlockEl.style.display = '';
+        } else {
+          unlockEl.textContent = level > 0 ? SkillSystem.getValueDesc(def.key, level) : '포인트로 습득';
+          unlockEl.style.display = '';
+        }
+      }
+      btn.disabled = !canUp;
+    });
+  }
+
+  _updateItemTab() {
+    if (typeof ItemSystem === 'undefined') return;
+    var equipped = (GameState.items && GameState.items.equipped) || {};
+    var inventory = (GameState.items && GameState.items.inventory) || [];
+
+    // 장착 슬롯 업데이트
+    ['weapon', 'armor', 'accessory'].forEach(function(slot) {
+      var slotEl = document.getElementById('item-slot-' + slot);
+      if (!slotEl) return;
+      var item = equipped[slot];
+      var icons = { weapon: '⚔️', armor: '🛡️', accessory: '💎' };
+      var iconEl = slotEl.querySelector('.item-slot-icon');
+      var nameEl = slotEl.querySelector('.item-slot-name');
+      if (item) {
+        slotEl.className = 'item-equip-slot equipped';
+        slotEl.style.borderColor = ItemSystem.getRarityBorder(item.rarity);
+        if (iconEl) iconEl.textContent = item.icon;
+        if (nameEl) {
+          nameEl.textContent = item.name;
+          nameEl.style.color = ItemSystem.getRarityColor(item.rarity);
+        }
+      } else {
+        slotEl.className = 'item-equip-slot empty';
+        slotEl.style.borderColor = '';
+        if (iconEl) iconEl.textContent = icons[slot];
+        if (nameEl) { nameEl.textContent = '비어있음'; nameEl.style.color = ''; }
+      }
+    });
+
+    // 인벤토리 슬롯 업데이트
+    for (var i = 0; i < 6; i++) {
+      var invSlot = document.getElementById('item-inv-' + i);
+      if (!invSlot) continue;
+      var invItem = inventory[i];
+      if (invItem) {
+        invSlot.className = 'item-inv-slot has-item';
+        invSlot.style.borderColor = ItemSystem.getRarityBorder(invItem.rarity);
+        invSlot.innerHTML = `<div class="item-inv-icon">${invItem.icon}</div><div class="item-inv-name" style="color:${ItemSystem.getRarityColor(invItem.rarity)}">${invItem.name}</div><div class="item-inv-stats">${ItemSystem.formatStats(invItem.stats)}</div>`;
+        (function(it) {
+          invSlot.onclick = function() {
+            if (typeof ItemSystem !== 'undefined') {
+              ItemSystem.equipItem(it);
+              UISceneInstance._updateBottomPanel();
+            }
+          };
+        })(invItem);
+      } else {
+        invSlot.className = 'item-inv-slot empty-inv';
+        invSlot.style.borderColor = '';
+        invSlot.innerHTML = '';
+        invSlot.onclick = null;
+      }
+    }
+  }
+
+  _processAutoUpgrade() {
+    if (!GameState.autoUpgrade) return;
+    var types = ['atk', 'def', 'hp', 'spd', 'critChance', 'goldBonus'];
+    for (var i = 0; i < types.length; i++) {
+      var type = types[i];
+      if (GameState.autoUpgrade[type] && UpgradeSystem.canAfford(type)) {
+        UpgradeSystem.applyUpgrade(type);
+      }
+    }
+  }
+
+  // ===== 스테이지 맵 모달 =====
+  _buildStageMapModal() {
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var modal = document.createElement('div');
+    modal.id = 'stage-map-modal';
+    modal.innerHTML = `
+      <div id="stage-map-inner">
+        <div id="stage-map-header">
+          🗺️ 스테이지 맵
+          <button id="stage-map-close">✕</button>
+        </div>
+        <div id="stage-map-grid"></div>
+        <div id="stage-map-legend">
+          <span class="legend-item current-l">● 현재</span>
+          <span class="legend-item boss-l">👑 보스</span>
+          <span class="legend-item cleared-l">✓ 클리어</span>
+          <span class="legend-item future-l">○ 미해금</span>
+        </div>
+      </div>
+    `;
+    overlay.appendChild(modal);
+
+    document.getElementById('stage-map-close').onclick = function() {
+      modal.classList.remove('visible');
+    };
+    modal.onclick = function(e) {
+      if (e.target === modal) modal.classList.remove('visible');
+    };
+  }
+
+  _openStageMap() {
+    this._refreshStageMap();
+    document.getElementById('stage-map-modal').classList.add('visible');
+  }
+
+  _refreshStageMap() {
+    var grid = document.getElementById('stage-map-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    var current = GameState.stage.current;
+    var maxShow = Math.max(current + 14, 35);
+
+    for (var s = 1; s <= maxShow; s++) {
+      var cell = document.createElement('div');
+      cell.className = 'stage-cell';
+      var isBoss = (s % 5 === 0);
+
+      if (s === current) {
+        cell.classList.add('current');
+      } else if (s < current) {
+        if (isBoss) cell.classList.add('boss-cleared');
+        else cell.classList.add('cleared');
+      } else {
+        if (isBoss) cell.classList.add('boss');
+        else cell.classList.add('future');
+      }
+
+      cell.innerHTML = '<span class="stage-num">' + s + '</span>' + (isBoss ? '<span class="boss-crown">👑</span>' : '');
+      grid.appendChild(cell);
+    }
   }
 }

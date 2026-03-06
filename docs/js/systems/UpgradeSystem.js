@@ -57,13 +57,23 @@ var UpgradeSystem = {
     GameState.hero.critChance = base.critChance + u.critChance * perLv.critChance;
     GameState.hero.critMult  = base.critMult;
 
-    // 장비 보너스 합산
+    // 장비 보너스 합산 (EquipmentSystem)
     if (typeof EquipmentSystem !== 'undefined') {
       var eqStats = EquipmentSystem.getEquippedStats();
       GameState.hero.maxHp      += eqStats.hp        || 0;
       GameState.hero.atk        += eqStats.atk       || 0;
       GameState.hero.def        += eqStats.def       || 0;
       GameState.hero.critChance += eqStats.critChance || 0;
+    }
+
+    // 아이템 보너스 합산 (ItemSystem)
+    if (typeof ItemSystem !== 'undefined') {
+      var itemBonus = ItemSystem.getStatBonuses();
+      GameState.hero.maxHp      += itemBonus.hp        || 0;
+      GameState.hero.atk        += itemBonus.atk       || 0;
+      GameState.hero.def        += itemBonus.def       || 0;
+      GameState.hero.spd        += itemBonus.spd       || 0;
+      GameState.hero.critChance += itemBonus.critChance || 0;
     }
 
     // 업적 flat 보너스
@@ -113,6 +123,10 @@ var UpgradeSystem = {
   },
 
   addExp: function(amount) {
+    // StatsTracker EXP 기록
+    if (typeof StatsTracker !== 'undefined') {
+      StatsTracker.recordExp(amount);
+    }
     GameState.hero.exp += amount;
     var leveled = false;
 
@@ -122,6 +136,10 @@ var UpgradeSystem = {
       this.recalculateStats();
       GameState.hero.hp = GameState.hero.maxHp;
       leveled = true;
+      // 스킬 포인트 지급 (레벨업 1회당 1포인트)
+      if (typeof SkillSystem !== 'undefined') {
+        SkillSystem.onLevelUp();
+      }
     }
 
     // 레벨 업적 체크
