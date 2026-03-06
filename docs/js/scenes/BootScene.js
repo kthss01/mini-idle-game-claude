@@ -19,6 +19,13 @@ class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // 레거시 세이브 마이그레이션: 구 키 → 슬롯 1으로 이전
+    var legacy = localStorage.getItem('idleRPG_v1_save');
+    if (legacy && !localStorage.getItem('idleRPG_v1_slot_1')) {
+      localStorage.setItem('idleRPG_v1_slot_1', legacy);
+      localStorage.removeItem('idleRPG_v1_save');
+    }
+
     // 세이브 데이터 로드
     var saveData = SaveSystem.load();
     var offlineGold = 0;
