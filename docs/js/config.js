@@ -66,9 +66,9 @@ var CONFIG = {
   AUTO_SAVE_INTERVAL: 15000,
 
   // 세이브 버전 (마이그레이션 관리)
-  SAVE_VERSION: 4,
+  SAVE_VERSION: 6,
 
-  // 로컬 저장 키
+  // 로컬 저장 키 (레거시 - SaveSlotManager로 대체됨)
   SAVE_KEY: 'idleRPG_v1_save',
 
   // 화면 크기

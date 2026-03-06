@@ -1,73 +1,10 @@
-// ===== 세이브 시스템 =====
+// ===== 세이브 시스템 (SaveSlotManager 위임) =====
 var SaveSystem = {
 
   save: function() {
     try {
-      var saveData = {
-        version: CONFIG.SAVE_VERSION,
-        hero: {
-          level: GameState.hero.level,
-          exp: GameState.hero.exp,
-          gold: GameState.hero.gold,
-          maxHp: GameState.hero.maxHp,
-          atk: GameState.hero.atk,
-          def: GameState.hero.def,
-          spd: GameState.hero.spd,
-          critChance: GameState.hero.critChance,
-          critMult: GameState.hero.critMult
-        },
-        upgrades: Object.assign({}, GameState.upgrades),
-        stage: {
-          current: GameState.stage.current,
-          killCount: GameState.stage.killCount
-        },
-        meta: {
-          totalKills: GameState.meta.totalKills,
-          totalGold: GameState.meta.totalGold,
-          playTime: GameState.meta.playTime,
-          lastSaveTime: Date.now()
-        },
-        skills: GameState.skills ? {
-          powerStrike: { level: GameState.skills.powerStrike.level, unlocked: GameState.skills.powerStrike.unlocked },
-          shield:      { level: GameState.skills.shield.level,      unlocked: GameState.skills.shield.unlocked },
-          drain:       { level: GameState.skills.drain.level,       unlocked: GameState.skills.drain.unlocked }
-        } : null,
-        equipment: GameState.equipment ? {
-          equipped: GameState.equipment.equipped,
-          inventory: GameState.equipment.inventory
-        } : null,
-        prestige: GameState.prestige ? {
-          count: GameState.prestige.count,
-          soulStones: GameState.prestige.soulStones,
-          totalSoulStones: GameState.prestige.totalSoulStones,
-          buffs: Object.assign({}, GameState.prestige.buffs)
-        } : null,
-        achievements: GameState.achievements ? {
-          unlocked: GameState.achievements.unlocked.slice(),
-          stats: Object.assign({}, GameState.achievements.stats)
-        } : null,
-        quests: GameState.quests ? {
-          active: GameState.quests.active.slice(),
-          daily: GameState.quests.daily.slice(),
-          lastDailyReset: GameState.quests.lastDailyReset,
-          totalCompleted: GameState.quests.totalCompleted
-        } : null,
-        shop: GameState.shop ? {
-          inventory: Object.assign({}, GameState.shop.inventory),
-          activeBuffs: Object.assign({}, GameState.shop.activeBuffs)
-        } : null,
-        pets: GameState.pets ? {
-          equipped: GameState.pets.equipped,
-          inventory: GameState.pets.inventory.slice(),
-          eggs: Object.assign({}, GameState.pets.eggs),
-          food: Object.assign({}, GameState.pets.food)
-        } : null,
-        crafting: GameState.crafting ? {
-          materials: Object.assign({}, GameState.crafting.materials),
-          enhanceMaterials: Object.assign({}, GameState.crafting.enhanceMaterials)
-        } : null
-      };
-      localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saveData));
+      var saveData = this._buildSaveData();
+      SaveSlotManager.saveToSlot(SaveSlotManager.getActiveSlot(), saveData);
 
       // 플레이 타임 업적 체크
       if (typeof AchievementSystem !== 'undefined') {
@@ -78,11 +15,79 @@ var SaveSystem = {
     }
   },
 
+  _buildSaveData: function() {
+    return {
+      version: CONFIG.SAVE_VERSION,
+      hero: {
+        level: GameState.hero.level,
+        exp: GameState.hero.exp,
+        gold: GameState.hero.gold,
+        maxHp: GameState.hero.maxHp,
+        atk: GameState.hero.atk,
+        def: GameState.hero.def,
+        spd: GameState.hero.spd,
+        critChance: GameState.hero.critChance,
+        critMult: GameState.hero.critMult
+      },
+      upgrades: Object.assign({}, GameState.upgrades),
+      stage: {
+        current: GameState.stage.current,
+        killCount: GameState.stage.killCount
+      },
+      meta: {
+        totalKills: GameState.meta.totalKills,
+        totalGold: GameState.meta.totalGold,
+        playTime: GameState.meta.playTime,
+        lastSaveTime: Date.now()
+      },
+      skills: GameState.skills ? {
+        powerStrike: { level: GameState.skills.powerStrike.level, unlocked: GameState.skills.powerStrike.unlocked },
+        shield:      { level: GameState.skills.shield.level,      unlocked: GameState.skills.shield.unlocked },
+        drain:       { level: GameState.skills.drain.level,       unlocked: GameState.skills.drain.unlocked }
+      } : null,
+      equipment: GameState.equipment ? {
+        equipped: GameState.equipment.equipped,
+        inventory: GameState.equipment.inventory
+      } : null,
+      prestige: GameState.prestige ? {
+        count: GameState.prestige.count,
+        soulStones: GameState.prestige.soulStones,
+        totalSoulStones: GameState.prestige.totalSoulStones,
+        buffs: Object.assign({}, GameState.prestige.buffs)
+      } : null,
+      achievements: GameState.achievements ? {
+        unlocked: GameState.achievements.unlocked.slice(),
+        stats: Object.assign({}, GameState.achievements.stats)
+      } : null,
+      quests: GameState.quests ? {
+        active: GameState.quests.active.slice(),
+        daily: GameState.quests.daily.slice(),
+        lastDailyReset: GameState.quests.lastDailyReset,
+        totalCompleted: GameState.quests.totalCompleted
+      } : null,
+      shop: GameState.shop ? {
+        inventory: Object.assign({}, GameState.shop.inventory),
+        activeBuffs: Object.assign({}, GameState.shop.activeBuffs)
+      } : null,
+      pets: GameState.pets ? {
+        equipped: GameState.pets.equipped,
+        inventory: GameState.pets.inventory.slice(),
+        eggs: Object.assign({}, GameState.pets.eggs),
+        food: Object.assign({}, GameState.pets.food)
+      } : null,
+      crafting: GameState.crafting ? {
+        materials: Object.assign({}, GameState.crafting.materials),
+        enhanceMaterials: Object.assign({}, GameState.crafting.enhanceMaterials)
+      } : null,
+      stats: GameState.stats ? {
+        lifetime: Object.assign({}, GameState.stats.lifetime)
+      } : null
+    };
+  },
+
   load: function() {
     try {
-      var raw = localStorage.getItem(CONFIG.SAVE_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw);
+      return SaveSlotManager.loadFromSlot(SaveSlotManager.getActiveSlot());
     } catch (e) {
       console.warn('로드 실패:', e);
       return null;
@@ -154,6 +159,23 @@ var SaveSystem = {
       saveData.version = 4;
     }
 
+    // v4 → v5: SaveSlotManager 전환 (데이터 구조 변경 없음 - 패스스루)
+    if (saveData.version < 5) {
+      saveData.version = 5;
+    }
+
+    // v5 → v6: stats.lifetime 필드 추가
+    if (saveData.version < 6) {
+      saveData.stats = saveData.stats || {};
+      saveData.stats.lifetime = saveData.stats.lifetime || {
+        totalDamageDealt: 0, totalDamageTaken: 0, totalGoldEarned: 0,
+        totalKills: 0, totalDeaths: 0, totalCrits: 0, totalSkillUses: 0,
+        totalCrafts: 0, totalPrestige: 0, highestStage: 0, highestLevel: 0,
+        peakDps: 0, totalEquipDrops: 0, stagesCleared: 0
+      };
+      saveData.version = 6;
+    }
+
     return saveData;
   },
 
@@ -199,10 +221,10 @@ var SaveSystem = {
       var ac = saveData.achievements;
       GameState.achievements.unlocked = ac.unlocked || [];
       if (ac.stats) {
-        GameState.achievements.stats.bossKills       = ac.stats.bossKills       || 0;
-        GameState.achievements.stats.totalGoldSpent  = ac.stats.totalGoldSpent  || 0;
-        GameState.achievements.stats.deaths          = ac.stats.deaths          || 0;
-        GameState.achievements.stats.consecutiveCrits= ac.stats.consecutiveCrits|| 0;
+        GameState.achievements.stats.bossKills        = ac.stats.bossKills       || 0;
+        GameState.achievements.stats.totalGoldSpent   = ac.stats.totalGoldSpent  || 0;
+        GameState.achievements.stats.deaths           = ac.stats.deaths          || 0;
+        GameState.achievements.stats.consecutiveCrits = ac.stats.consecutiveCrits|| 0;
       }
     }
 
@@ -246,7 +268,7 @@ var SaveSystem = {
       UpgradeSystem.recalculateStats();
     }
 
-    // quests 복원 (checkDailyReset에서 처리)
+    // quests 복원
     if (GameState.quests && saveData.quests) {
       var qd = saveData.quests;
       GameState.quests.active        = qd.active        || [];
@@ -297,6 +319,26 @@ var SaveSystem = {
       }
     }
 
+    // stats.lifetime 복원
+    if (GameState.stats && saveData.stats && saveData.stats.lifetime) {
+      var lt = saveData.stats.lifetime;
+      var d  = GameState.stats.lifetime;
+      d.totalDamageDealt = lt.totalDamageDealt || 0;
+      d.totalDamageTaken = lt.totalDamageTaken || 0;
+      d.totalGoldEarned  = lt.totalGoldEarned  || 0;
+      d.totalKills       = lt.totalKills       || 0;
+      d.totalDeaths      = lt.totalDeaths      || 0;
+      d.totalCrits       = lt.totalCrits       || 0;
+      d.totalSkillUses   = lt.totalSkillUses   || 0;
+      d.totalCrafts      = lt.totalCrafts      || 0;
+      d.totalPrestige    = lt.totalPrestige    || 0;
+      d.highestStage     = lt.highestStage     || 0;
+      d.highestLevel     = lt.highestLevel     || 0;
+      d.peakDps          = lt.peakDps          || 0;
+      d.totalEquipDrops  = lt.totalEquipDrops  || 0;
+      d.stagesCleared    = lt.stagesCleared    || 0;
+    }
+
     // pets 포함한 스탯 재계산
     if (typeof PetSystem !== 'undefined') UpgradeSystem.recalculateStats();
   },
@@ -326,8 +368,15 @@ var SaveSystem = {
     return Math.floor(elapsed * goldPerSec);
   },
 
-  resetSave: function() {
-    localStorage.removeItem(CONFIG.SAVE_KEY);
+  resetSave: function(all) {
+    if (all) {
+      for (var i = 1; i <= SaveSlotManager.SLOT_COUNT; i++) {
+        SaveSlotManager.deleteSlot(i);
+      }
+      localStorage.removeItem(SaveSlotManager.ACTIVE_KEY);
+    } else {
+      SaveSlotManager.deleteSlot(SaveSlotManager.getActiveSlot());
+    }
     window.location.reload();
   }
 };
