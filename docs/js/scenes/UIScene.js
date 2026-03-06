@@ -13,6 +13,9 @@ class UIScene extends Phaser.Scene {
     this._achieveFilter = 'all';
     this._achieveToastQueue = [];
     this._achieveToastShowing = false;
+    this._statsRefreshTimer = null;
+    this._dpsWidgetOpen = false;
+    this._activeSettingsTab = 'config';
   }
 
   create() {
@@ -26,6 +29,8 @@ class UIScene extends Phaser.Scene {
     this._buildQuestSidebar();
     this._buildPetModal();
     this._buildCraftingModal();
+
+    this._buildDpsWidget();
 
     UISceneInstance = this;
     this.onGameUpdate();
@@ -46,6 +51,7 @@ class UIScene extends Phaser.Scene {
     this._updateQuestSidebar();
     this._updatePetSlot();
     this._updateHudBuffs();
+    this._updateDpsWidget();
   }
 
   // ===== HUD 빌드 =====
@@ -694,7 +700,7 @@ class UIScene extends Phaser.Scene {
     }, 3000);
   }
 
-  // ===== 세팅 패널 빌드 (탭: 설정 / 업적) =====
+  // ===== 세팅 패널 빌드 (탭: 설정 / 업적 / 통계) =====
   _buildSettingsPanel() {
     var overlay = document.getElementById('ui-overlay');
     var self = this;
@@ -706,11 +712,13 @@ class UIScene extends Phaser.Scene {
       <div class="settings-tabs-row">
         <button class="settings-tab active" id="stab-config">설정</button>
         <button class="settings-tab" id="stab-achieve">업적</button>
+        <button class="settings-tab" id="stab-stats">통계</button>
       </div>
       <div id="stab-pane-config">
         <div class="settings-row">
           <button class="settings-btn" id="btn-manual-save">💾 지금 저장</button>
-          <button class="settings-btn danger" id="btn-reset">🗑️ 데이터 초기화</button>
+          <button class="settings-btn danger" id="btn-reset">🗑️ 활성 슬롯 초기화</button>
+          <button class="settings-btn danger" id="btn-reset-all">🗑️ 전체 슬롯 초기화</button>
         </div>
         <div id="settings-info">
           총 플레이: <span id="info-playtime">0분</span><br>
@@ -718,6 +726,20 @@ class UIScene extends Phaser.Scene {
           총 골드: <span id="info-gold">0</span><br>
           환생 횟수: <span id="info-prestige">0</span>회<br>
           영혼석: <span id="info-souls">0</span>개
+        </div>
+        <div id="save-slot-section">
+          <div class="slot-section-title">📁 세이브 슬롯</div>
+          <div id="save-slot-list"></div>
+          <div class="slot-section-title" style="margin-top:10px">📤 내보내기 / 📥 가져오기</div>
+          <div class="slot-io-row">
+            <select id="slot-io-select" class="slot-select">
+              <option value="1">슬롯 1</option>
+              <option value="2">슬롯 2</option>
+              <option value="3">슬롯 3</option>
+            </select>
+            <button class="settings-btn slot-io-btn" id="btn-export-slot">내보내기</button>
+            <button class="settings-btn slot-io-btn" id="btn-import-slot">가져오기</button>
+          </div>
         </div>
       </div>
       <div id="stab-pane-achieve" style="display:none">
@@ -735,28 +757,56 @@ class UIScene extends Phaser.Scene {
         </div>
         <div id="achieve-list"></div>
       </div>
+      <div id="stab-pane-stats" style="display:none">
+        <div id="stats-content"></div>
+      </div>
     `;
     overlay.appendChild(panel);
 
     // 닫기 버튼
     document.getElementById('settings-close').onclick = function() {
       panel.classList.remove('visible');
+      // 통계 탭 인터벌 클리어
+      if (self._statsRefreshTimer) {
+        clearInterval(self._statsRefreshTimer);
+        self._statsRefreshTimer = null;
+      }
     };
 
-    // 탭 전환
-    document.getElementById('stab-config').onclick = function() {
-      document.getElementById('stab-config').classList.add('active');
-      document.getElementById('stab-achieve').classList.remove('active');
-      document.getElementById('stab-pane-config').style.display = '';
-      document.getElementById('stab-pane-achieve').style.display = 'none';
+    // 탭 전환 핸들러
+    var switchTab = function(tabKey) {
+      self._activeSettingsTab = tabKey;
+      panel.querySelectorAll('.settings-tab').forEach(function(t) { t.classList.remove('active'); });
+      var tabBtn = document.getElementById('stab-' + tabKey);
+      if (tabBtn) tabBtn.classList.add('active');
+      document.getElementById('stab-pane-config').style.display  = tabKey === 'config'  ? '' : 'none';
+      document.getElementById('stab-pane-achieve').style.display = tabKey === 'achieve' ? '' : 'none';
+      document.getElementById('stab-pane-stats').style.display   = tabKey === 'stats'   ? '' : 'none';
+
+      if (tabKey === 'achieve') {
+        self._refreshAchievements(self._achieveFilter);
+      }
+      if (tabKey === 'stats') {
+        self._refreshStatsPanel();
+        if (!self._statsRefreshTimer) {
+          self._statsRefreshTimer = setInterval(function() {
+            if (self._activeSettingsTab === 'stats') self._refreshStatsPanel();
+          }, 200);
+        }
+      } else {
+        if (self._statsRefreshTimer) {
+          clearInterval(self._statsRefreshTimer);
+          self._statsRefreshTimer = null;
+        }
+      }
+      if (tabKey === 'config') {
+        self._refreshSaveSlots();
+      }
     };
-    document.getElementById('stab-achieve').onclick = function() {
-      document.getElementById('stab-achieve').classList.add('active');
-      document.getElementById('stab-config').classList.remove('active');
-      document.getElementById('stab-pane-config').style.display = 'none';
-      document.getElementById('stab-pane-achieve').style.display = '';
-      self._refreshAchievements(self._achieveFilter);
-    };
+
+    document.getElementById('stab-config').onclick  = function() { switchTab('config'); };
+    document.getElementById('stab-achieve').onclick = function() { switchTab('achieve'); };
+    document.getElementById('stab-stats').onclick   = function() { switchTab('stats'); };
 
     // 카테고리 필터
     panel.querySelectorAll('.achieve-filter-btn').forEach(function(btn) {
@@ -777,10 +827,325 @@ class UIScene extends Phaser.Scene {
     };
 
     document.getElementById('btn-reset').onclick = function() {
-      if (confirm('모든 데이터가 삭제됩니다. 정말 초기화하시겠습니까?')) {
-        SaveSystem.resetSave();
+      if (confirm('활성 슬롯의 데이터가 삭제됩니다. 정말 초기화하시겠습니까?')) {
+        SaveSystem.resetSave(false);
       }
     };
+
+    document.getElementById('btn-reset-all').onclick = function() {
+      if (confirm('모든 슬롯의 데이터가 삭제됩니다. 정말 초기화하시겠습니까?')) {
+        SaveSystem.resetSave(true);
+      }
+    };
+
+    // 내보내기
+    document.getElementById('btn-export-slot').onclick = function() {
+      var n = parseInt(document.getElementById('slot-io-select').value);
+      var b64 = SaveSlotManager.exportSlot(n);
+      if (!b64) {
+        alert('슬롯 ' + n + '에 저장된 데이터가 없습니다.');
+        return;
+      }
+      self._showExportModal(b64, n);
+    };
+
+    // 가져오기
+    document.getElementById('btn-import-slot').onclick = function() {
+      var n = parseInt(document.getElementById('slot-io-select').value);
+      self._showImportModal(n);
+    };
+
+    // 초기 슬롯 표시
+    this._refreshSaveSlots();
+  }
+
+  _refreshSaveSlots() {
+    var list = document.getElementById('save-slot-list');
+    if (!list || typeof SaveSlotManager === 'undefined') return;
+    var self = this;
+    var metas = SaveSlotManager.getAllSlotsMeta();
+    var activeSlot = SaveSlotManager.getActiveSlot();
+
+    list.innerHTML = '';
+    metas.forEach(function(meta) {
+      var isActive = meta.slot === activeSlot;
+      var card = document.createElement('div');
+      card.className = 'save-slot-card' + (isActive ? ' save-slot-active' : '');
+
+      var lastSaveStr = '';
+      if (!meta.isEmpty && meta.lastSaveTime) {
+        var diff = Math.floor((Date.now() - meta.lastSaveTime) / 1000);
+        if (diff < 60) lastSaveStr = diff + '초 전';
+        else if (diff < 3600) lastSaveStr = Math.floor(diff / 60) + '분 전';
+        else lastSaveStr = Math.floor(diff / 3600) + '시간 전';
+      }
+
+      var playTimeStr = '';
+      if (!meta.isEmpty) {
+        var mins = Math.floor((meta.totalPlayTime || 0) / 60);
+        playTimeStr = mins + '분';
+      }
+
+      card.innerHTML = `
+        <div class="slot-card-header">
+          <span class="slot-card-num">슬롯 ${meta.slot}</span>
+          ${isActive ? '<span class="slot-active-badge">● 활성</span>' : ''}
+        </div>
+        ${meta.isEmpty
+          ? '<div class="slot-card-empty">비어있음</div>'
+          : `<div class="slot-card-info">
+               Lv.${meta.heroLevel} · 스테이지 ${meta.stage} · 환생 ${meta.prestigeCount}회<br>
+               플레이 ${playTimeStr} · ${lastSaveStr} 저장
+             </div>`
+        }
+        <div class="slot-card-btns">
+          ${!isActive ? '<button class="slot-btn slot-btn-load" data-slot="' + meta.slot + '">불러오기</button>' : ''}
+          ${!meta.isEmpty ? '<button class="slot-btn slot-btn-copy" data-slot="' + meta.slot + '">복사</button>' : ''}
+          ${!meta.isEmpty ? '<button class="slot-btn slot-btn-del" data-slot="' + meta.slot + '">삭제</button>' : ''}
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    // 버튼 이벤트
+    list.querySelectorAll('.slot-btn-load').forEach(function(btn) {
+      btn.onclick = function() {
+        var n = parseInt(this.dataset.slot);
+        if (confirm('슬롯 ' + n + '을 불러오시겠습니까? 현재 진행 중인 내용은 저장 후 이동됩니다.')) {
+          SaveSystem.save();
+          SaveSlotManager.setActiveSlot(n);
+          window.location.reload();
+        }
+      };
+    });
+
+    list.querySelectorAll('.slot-btn-copy').forEach(function(btn) {
+      btn.onclick = function() {
+        var from = parseInt(this.dataset.slot);
+        var targets = [1, 2, 3].filter(function(n) { return n !== from; });
+        var targetStr = targets.map(function(n) { return n + '번 슬롯'; }).join(' / ');
+        var answer = prompt('복사할 대상 슬롯 번호를 입력하세요 (' + targetStr + '):');
+        var to = parseInt(answer);
+        if (targets.indexOf(to) < 0) { alert('유효하지 않은 슬롯 번호입니다.'); return; }
+        var meta = SaveSlotManager.getSlotMeta(to);
+        if (!meta.isEmpty && !confirm('슬롯 ' + to + '에 이미 데이터가 있습니다. 덮어쓰시겠습니까?')) return;
+        if (SaveSlotManager.copySlot(from, to)) {
+          alert('슬롯 ' + from + ' → 슬롯 ' + to + ' 복사 완료!');
+          self._refreshSaveSlots();
+        }
+      };
+    });
+
+    list.querySelectorAll('.slot-btn-del').forEach(function(btn) {
+      btn.onclick = function() {
+        var n = parseInt(this.dataset.slot);
+        if (confirm('슬롯 ' + n + '의 데이터를 삭제하시겠습니까?')) {
+          SaveSlotManager.deleteSlot(n);
+          self._refreshSaveSlots();
+        }
+      };
+    });
+  }
+
+  _showExportModal(b64, slotNum) {
+    var overlay = document.getElementById('ui-overlay');
+    var modal = document.createElement('div');
+    modal.className = 'export-modal';
+    modal.innerHTML = `
+      <button class="export-modal-close">✕</button>
+      <div class="export-modal-title">슬롯 ${slotNum} 내보내기</div>
+      <textarea class="export-textarea" readonly>${b64}</textarea>
+      <button class="export-copy-btn">클립보드에 복사</button>
+      <div class="export-hint">위 텍스트를 복사하여 다른 기기에서 가져오기에 붙여넣으세요.</div>
+    `;
+    overlay.appendChild(modal);
+
+    modal.querySelector('.export-modal-close').onclick = function() { modal.remove(); };
+    modal.querySelector('.export-copy-btn').onclick = function() {
+      var ta = modal.querySelector('.export-textarea');
+      ta.select();
+      try {
+        navigator.clipboard.writeText(ta.value).then(function() {
+          modal.querySelector('.export-copy-btn').textContent = '복사 완료!';
+        }).catch(function() {
+          document.execCommand('copy');
+          modal.querySelector('.export-copy-btn').textContent = '복사 완료!';
+        });
+      } catch(e) {
+        document.execCommand('copy');
+        modal.querySelector('.export-copy-btn').textContent = '복사 완료!';
+      }
+    };
+  }
+
+  _showImportModal(slotNum) {
+    var overlay = document.getElementById('ui-overlay');
+    var modal = document.createElement('div');
+    modal.className = 'export-modal';
+    modal.innerHTML = `
+      <button class="export-modal-close">✕</button>
+      <div class="export-modal-title">슬롯 ${slotNum}에 가져오기</div>
+      <textarea class="export-textarea" placeholder="내보내기 텍스트를 붙여넣으세요..."></textarea>
+      <button class="export-copy-btn">가져오기</button>
+      <div class="export-hint">가져오기 후 페이지를 새로고침해야 적용됩니다.</div>
+    `;
+    overlay.appendChild(modal);
+
+    modal.querySelector('.export-modal-close').onclick = function() { modal.remove(); };
+    modal.querySelector('.export-copy-btn').onclick = function() {
+      var txt = modal.querySelector('.export-textarea').value.trim();
+      if (!txt) { alert('텍스트를 입력해주세요.'); return; }
+      var err = SaveSlotManager.importSlot(txt, slotNum);
+      if (err) {
+        alert('가져오기 실패: ' + err);
+      } else {
+        alert('슬롯 ' + slotNum + '에 데이터를 가져왔습니다. 불러오기를 하려면 설정에서 슬롯을 불러오세요.');
+        modal.remove();
+      }
+    };
+  }
+
+  // ===== 통계 탭 =====
+  _refreshStatsPanel() {
+    var container = document.getElementById('stats-content');
+    if (!container || typeof StatsTracker === 'undefined') return;
+
+    var rt = StatsTracker.getRealtime();
+    var sess = StatsTracker.getSession();
+    var lt = StatsTracker.getLifetime();
+    var hist = StatsTracker.getStageHistory();
+
+    var sessionMins = Math.floor((Date.now() - sess.startTime) / 60000);
+    var sessionH = Math.floor(sessionMins / 60);
+    var sessionM = sessionMins % 60;
+    var sessionStr = (sessionH > 0 ? sessionH + '시간 ' : '') + sessionM + '분';
+
+    var fastestStr = sess.fastestStageTime === Infinity ? '-' : (sess.fastestStageTime / 1000).toFixed(1) + '초';
+    var survStr = rt.survivability >= 999 ? '무적' : rt.survivability + '초';
+    var dpsGrade = this._getDpsGrade(rt.dps);
+    var avgClear5  = StatsTracker.getAverageStageClearTime(5);
+    var avgClear10 = StatsTracker.getAverageStageClearTime(10);
+    var chart = this._buildAsciiChart(hist);
+
+    container.innerHTML = `
+      <div class="stats-section">
+        <div class="stats-section-title">⚡ 실시간</div>
+        <div class="stats-grid">
+          <div class="stats-item"><div class="stats-label">DPS</div><div class="stats-val dps-val">${formatNumber(rt.dps)} <span class="dps-grade ${dpsGrade.cls}">${dpsGrade.label}</span></div></div>
+          <div class="stats-item"><div class="stats-label">유효 DPS</div><div class="stats-val">${formatNumber(rt.effectiveAtk)}</div></div>
+          <div class="stats-item"><div class="stats-label">골드/분</div><div class="stats-val">${formatNumber(rt.goldPerMin)}</div></div>
+          <div class="stats-item"><div class="stats-label">킬/분</div><div class="stats-val">${rt.killsPerMin}</div></div>
+          <div class="stats-item"><div class="stats-label">생존지수</div><div class="stats-val">${survStr}</div></div>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">📊 이번 세션 (${sessionStr})</div>
+        <div class="stats-grid">
+          <div class="stats-item"><div class="stats-label">킬</div><div class="stats-val">${formatNumber(sess.kills)}</div></div>
+          <div class="stats-item"><div class="stats-label">골드</div><div class="stats-val">${formatNumber(sess.goldEarned)}</div></div>
+          <div class="stats-item"><div class="stats-label">스테이지</div><div class="stats-val">${sess.stagesCleared}</div></div>
+          <div class="stats-item"><div class="stats-label">장비 드롭</div><div class="stats-val">${sess.equipmentDropped}</div></div>
+          <div class="stats-item"><div class="stats-label">스킬 발동</div><div class="stats-val">${sess.skillActivations}</div></div>
+          <div class="stats-item"><div class="stats-label">최고 DPS</div><div class="stats-val">${formatNumber(sess.highestDps)}</div></div>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">🏆 누적 전체</div>
+        <div class="stats-grid">
+          <div class="stats-item"><div class="stats-label">총 킬</div><div class="stats-val">${lt ? formatNumber(lt.totalKills) : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">총 데미지</div><div class="stats-val">${lt ? formatNumber(lt.totalDamageDealt) : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">총 피해</div><div class="stats-val">${lt ? formatNumber(lt.totalDamageTaken) : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">총 사망</div><div class="stats-val">${lt ? lt.totalDeaths : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">크리티컬</div><div class="stats-val">${lt ? formatNumber(lt.totalCrits) : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">최고 스테이지</div><div class="stats-val">${lt ? lt.highestStage : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">최고 레벨</div><div class="stats-val">${lt ? lt.highestLevel : 0}</div></div>
+          <div class="stats-item"><div class="stats-label">역대 최고 DPS</div><div class="stats-val">${lt ? formatNumber(lt.peakDps) : 0}</div></div>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">📈 스테이지 클리어 속도</div>
+        <div class="stats-clear-times">
+          <span>평균(최근 5개): ${avgClear5 > 0 ? (avgClear5/1000).toFixed(1) + '초' : '-'}</span>
+          <span>평균(최근 10개): ${avgClear10 > 0 ? (avgClear10/1000).toFixed(1) + '초' : '-'}</span>
+          <span>최속: ${fastestStr}</span>
+        </div>
+        <div class="stats-chart-container" id="stats-chart">${chart}</div>
+      </div>
+    `;
+
+    // 차트 툴팁 등록
+    var chartEl = document.getElementById('stats-chart');
+    if (chartEl) {
+      chartEl.querySelectorAll('.chart-bar').forEach(function(bar) {
+        bar.title = bar.dataset.tip || '';
+      });
+    }
+  }
+
+  _getDpsGrade(dps) {
+    if (dps < 1000)    return { label: 'BRONZE', cls: 'grade-bronze' };
+    if (dps < 10000)   return { label: 'SILVER', cls: 'grade-silver' };
+    if (dps < 100000)  return { label: 'GOLD',   cls: 'grade-gold' };
+    if (dps < 1000000) return { label: 'PLAT',   cls: 'grade-plat' };
+    return { label: 'DIAMOND', cls: 'grade-diamond' };
+  }
+
+  _buildAsciiChart(hist) {
+    if (!hist || hist.length === 0) {
+      return '<span style="color:rgba(255,255,255,0.3)">클리어 기록 없음</span>';
+    }
+    var bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    var times = hist.map(function(h) { return h.clearTime; });
+    var maxT = Math.max.apply(null, times);
+    var minT = Math.min.apply(null, times);
+    var range = maxT - minT || 1;
+
+    var html = '';
+    // 역순으로 표시 (오래된 것부터)
+    for (var i = hist.length - 1; i >= 0; i--) {
+      var t = hist[i].clearTime;
+      var idx = Math.round((t - minT) / range * (bars.length - 1));
+      var barChar = bars[idx];
+      var tipText = '스테이지 ' + hist[i].stage + ': ' + (t / 1000).toFixed(1) + '초';
+      html += '<span class="chart-bar" data-tip="' + tipText + '" title="' + tipText + '">' + barChar + '</span>';
+    }
+    return html;
+  }
+
+  // ===== DPS 미니 위젯 =====
+  _buildDpsWidget() {
+    var overlay = document.getElementById('ui-overlay');
+    var self = this;
+
+    var widget = document.createElement('div');
+    widget.id = 'dps-widget';
+    widget.innerHTML = `
+      <div id="dps-widget-toggle">DPS</div>
+      <div id="dps-widget-body" style="display:none">
+        <div class="dps-row"><span class="dps-lbl">DPS</span><span class="dps-num" id="dw-dps">0</span></div>
+        <div class="dps-row"><span class="dps-lbl">골드/분</span><span class="dps-num" id="dw-gold">0</span></div>
+        <div class="dps-row"><span class="dps-lbl">킬/분</span><span class="dps-num" id="dw-kill">0</span></div>
+      </div>
+    `;
+    overlay.appendChild(widget);
+
+    document.getElementById('dps-widget-toggle').onclick = function() {
+      self._dpsWidgetOpen = !self._dpsWidgetOpen;
+      var body = document.getElementById('dps-widget-body');
+      if (body) body.style.display = self._dpsWidgetOpen ? '' : 'none';
+      widget.classList.toggle('dps-widget-open', self._dpsWidgetOpen);
+    };
+  }
+
+  _updateDpsWidget() {
+    if (!this._dpsWidgetOpen || typeof StatsTracker === 'undefined') return;
+    var rt = StatsTracker.getRealtime();
+    var dpEl = document.getElementById('dw-dps');
+    var gEl  = document.getElementById('dw-gold');
+    var kEl  = document.getElementById('dw-kill');
+    if (dpEl) dpEl.textContent = formatNumber(rt.dps);
+    if (gEl)  gEl.textContent  = formatNumber(rt.goldPerMin);
+    if (kEl)  kEl.textContent  = rt.killsPerMin;
   }
 
   _refreshAchievements(filter) {
