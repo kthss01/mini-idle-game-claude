@@ -605,6 +605,15 @@ canvas {
   z-index: 15;
 }
 
+.equip-panel-label {
+  font-size: 8px;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  letter-spacing: 0.5px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
 .equip-slot {
   width: 50px;
   height: 50px;
@@ -2322,6 +2331,39 @@ canvas {
 
 .panel-content { display: none; height: 100%; padding: 4px 8px; overflow-x: auto; }
 .panel-content.active { display: flex; align-items: center; gap: 6px; }
+
+/* 상점 카드 */
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 70px;
+  gap: 2px;
+  padding: 4px 3px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+}
+.shop-card-icon { font-size: 18px; line-height: 1; }
+.shop-card-name { font-size: 8px; color: rgba(255,255,255,0.75); text-align: center; line-height: 1.2; }
+.shop-card-count { font-size: 9px; color: #4ecdc4; }
+.shop-card-price { font-size: 9px; color: #ffd700; font-weight: 600; }
+.shop-buy-btn, .shop-use-btn {
+  width: 100%;
+  height: 18px;
+  font-size: 9px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.shop-buy-btn { background: rgba(255,215,0,0.15); color: #ffd700; }
+.shop-buy-btn:hover:not(:disabled) { background: rgba(255,215,0,0.3); }
+.shop-buy-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.shop-use-btn { background: rgba(78,205,196,0.15); color: #4ecdc4; }
+.shop-use-btn:hover:not(:disabled) { background: rgba(78,205,196,0.3); }
+.shop-use-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* 업그레이드 카드 */
 .upgrade-card {

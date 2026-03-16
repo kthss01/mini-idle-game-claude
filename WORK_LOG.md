@@ -21,7 +21,7 @@
 | 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | ✅ 완료 |
 | 4 | 스킬별 고유 VFX | ✅ 완료 |
 | 5 | 튜토리얼 | ✅ 완료 |
-| 6 | 두 장비 시스템 통일 | 대기 |
+| 6 | 두 장비 시스템 통일 | ✅ 완료 |
 
 ---
 
@@ -109,6 +109,32 @@ JS: window.resize 이벤트에서 scale = min(vw/800, vh/600) 계산 후 transfo
 
 **SaveSystem:**
 - 새 shop.inventory/activeBuffs 필드 복원 코드 추가 (기존 세이브는 || 0 fallback)
+
+---
+
+### [6] 두 장비 시스템 UI 정리 & 상점 탭 접근성 수정 (2026-03-16)
+
+**문제**:
+- `#shop-panel`이 `display: none !important`로 고정되어 ShopSystem의 모든 소모품(HP 포션, 부스터 등)이 UI에서 접근 불가
+- `#equip-panel`(강화 장비 시스템)과 `🎒 장비` 탭(드롭 아이템 ItemSystem)이 역할 구분 없이 병렬 존재
+
+**구현 내용**:
+1. **하단 패널에 🛒 상점 탭 신규 추가**
+   - ShopSystem.CONSUMABLES 8종 카드 그리드 (HP포션/완전회복/황금부스터/EXP부스터/드롭부스터/전투부스터/집중부스터/부활석)
+   - 각 카드: 아이콘 + 이름 + 보유수량 + 가격 + 구매/사용 버튼
+   - 버프 아이템 사용 시 남은 시간(초) 실시간 표시
+   - 골드/수량 부족 시 구매 버튼 자동 비활성화
+
+2. **equip-panel 섹션 레이블 추가**
+   - "⚙️ 강화 장비" 레이블 (weapon/armor/ring EquipmentSystem 슬롯 구분)
+   - "🐾 펫" 레이블 (펫 슬롯 구분)
+
+3. **장비 탭 레이블 개선**
+   - 🎒 장비 탭 장착 섹션 → "드롭 아이템 — 장착" (ItemSystem 드롭 아이템 임을 명시)
+
+**수정 파일**:
+- `docs/js/scenes/UIScene.js`: `_buildBottomPanel()` 상점 탭 추가, `_updateShopTab()` 신규, `_buildEquipmentPanel()` 섹션 레이블 추가
+- `docs/css/style.css`: `.shop-card`, `.shop-buy-btn`, `.shop-use-btn`, `.equip-panel-label` 스타일 추가
 
 ---
 

@@ -355,6 +355,12 @@ class UIScene extends Phaser.Scene {
     var panel = document.createElement('div');
     panel.id = 'equip-panel';
 
+    // 섹션 레이블
+    var equipLabel = document.createElement('div');
+    equipLabel.className = 'equip-panel-label';
+    equipLabel.textContent = '⚙️ 강화 장비';
+    panel.appendChild(equipLabel);
+
     slotDefs.forEach(function(def) {
       var slotEl = document.createElement('div');
       slotEl.className = 'equip-slot';
@@ -368,6 +374,12 @@ class UIScene extends Phaser.Scene {
 
       panel.appendChild(slotEl);
     });
+
+    // 펫 섹션 레이블
+    var petLabel = document.createElement('div');
+    petLabel.className = 'equip-panel-label';
+    petLabel.textContent = '🐾 펫';
+    panel.appendChild(petLabel);
 
     // 펫 슬롯
     var petSlot = document.createElement('div');
@@ -1934,6 +1946,7 @@ class UIScene extends Phaser.Scene {
       <button class="panel-tab active" data-tab="upgrade">⚔️ 업그레이드</button>
       <button class="panel-tab" data-tab="skill">✨ 스킬</button>
       <button class="panel-tab" data-tab="item">🎒 장비</button>
+      <button class="panel-tab" data-tab="shop">🛒 상점</button>
     `;
     panel.appendChild(tabBar);
 
@@ -2022,7 +2035,7 @@ class UIScene extends Phaser.Scene {
     // 장착 슬롯
     var equipArea = document.createElement('div');
     equipArea.id = 'item-equip-area';
-    equipArea.innerHTML = '<div class="section-label">장착</div>';
+    equipArea.innerHTML = '<div class="section-label">드롭 아이템 — 장착</div>';
     var equipSlots = document.createElement('div');
     equipSlots.id = 'item-equip-slots';
     ['weapon', 'armor', 'accessory'].forEach(function(slot) {
@@ -2059,6 +2072,45 @@ class UIScene extends Phaser.Scene {
     itemContent.appendChild(invArea);
 
     contents.appendChild(itemContent);
+
+    // --- 상점 탭 ---
+    var shopContent = document.createElement('div');
+    shopContent.className = 'panel-content';
+    shopContent.dataset.content = 'shop';
+
+    if (typeof ShopSystem !== 'undefined') {
+      ShopSystem.CONSUMABLES.forEach(function(def) {
+        var card = document.createElement('div');
+        card.className = 'shop-card';
+        card.id = 'shop-card-' + def.id;
+        card.innerHTML = `
+          <div class="shop-card-icon">${def.icon}</div>
+          <div class="shop-card-name">${def.name}</div>
+          <div class="shop-card-count" id="shop-cnt-${def.id}">0/${def.maxStack}</div>
+          <div class="shop-card-price" id="shop-price-${def.id}">-</div>
+          <button class="shop-buy-btn" id="shop-buy-${def.id}">구매</button>
+          <button class="shop-use-btn" id="shop-use-${def.id}">${def.isBuff ? '사용' : '사용'}</button>
+        `;
+        // 구매 버튼
+        (function(id) {
+          var buyBtn = card.querySelector('#shop-buy-' + id);
+          var useBtn = card.querySelector('#shop-use-' + id);
+          buyBtn.onclick = function() {
+            if (typeof ShopSystem !== 'undefined') {
+              ShopSystem.buyConsumable(id);
+            }
+          };
+          useBtn.onclick = function() {
+            if (typeof ShopSystem !== 'undefined') {
+              ShopSystem.useConsumable(id);
+            }
+          };
+        })(def.id);
+        shopContent.appendChild(card);
+      });
+    }
+    contents.appendChild(shopContent);
+
     panel.appendChild(contents);
     overlay.appendChild(panel);
 
@@ -2081,6 +2133,7 @@ class UIScene extends Phaser.Scene {
     if (tab === 'upgrade') this._updateUpgradeTab();
     else if (tab === 'skill') this._updateSkillTab();
     else if (tab === 'item') this._updateItemTab();
+    else if (tab === 'shop') this._updateShopTab();
   }
 
   _updateUpgradeTab() {
@@ -2188,6 +2241,35 @@ class UIScene extends Phaser.Scene {
         invSlot.onclick = null;
       }
     }
+  }
+
+  _updateShopTab() {
+    if (typeof ShopSystem === 'undefined') return;
+    ShopSystem.CONSUMABLES.forEach(function(def) {
+      var cntEl    = document.getElementById('shop-cnt-'   + def.id);
+      var priceEl  = document.getElementById('shop-price-' + def.id);
+      var buyBtn   = document.getElementById('shop-buy-'   + def.id);
+      var useBtn   = document.getElementById('shop-use-'   + def.id);
+      if (!cntEl) return;
+
+      var cnt   = (GameState.shop && GameState.shop.inventory && GameState.shop.inventory[def.id]) || 0;
+      var price = ShopSystem.getPrice(def.id);
+      var canBuy = GameState.hero.gold >= price && cnt < def.maxStack;
+      var canUse = cnt > 0 && def.id !== 'revive';
+
+      cntEl.textContent   = cnt + '/' + def.maxStack;
+      priceEl.textContent = '💰' + formatNumber(price);
+      if (buyBtn) buyBtn.disabled = !canBuy;
+      if (useBtn) {
+        if (def.isBuff) {
+          var remaining = ShopSystem.isBuffActive(def.id);
+          useBtn.textContent  = remaining > 0 ? '⏱' + remaining + 's' : '사용';
+          useBtn.disabled     = !canUse;
+        } else {
+          useBtn.disabled = !canUse;
+        }
+      }
+    });
   }
 
   _processAutoUpgrade() {
