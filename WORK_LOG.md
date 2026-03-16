@@ -20,7 +20,7 @@
 | 2 | 타이틀/슬롯 선택 화면 | ✅ 완료 |
 | 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | ✅ 완료 |
 | 4 | 스킬별 고유 VFX | ✅ 완료 |
-| 5 | 튜토리얼 | 대기 |
+| 5 | 튜토리얼 | ✅ 완료 |
 | 6 | 두 장비 시스템 통일 | 대기 |
 
 ---
@@ -46,6 +46,27 @@ body: flex 레이아웃 → position: relative + width/height 100vw/vh
 #game-container: position absolute + top/left 50% + translate(-50%,-50%)
 JS: window.resize 이벤트에서 scale = min(vw/800, vh/600) 계산 후 transform 적용
 ```
+
+---
+
+### [5] 튜토리얼 시스템 (2026-03-16)
+
+**문제**: 신규 플레이어를 위한 게임 안내가 전혀 없었음. 복잡한 시스템(스킬, 제작, 펫 등)에 대한 설명 부재.
+
+**구현 내용**:
+- `TutorialSystem` 객체 신규 생성 (docs/js/systems/TutorialSystem.js)
+- 6단계 순차 안내: 자동 전투 → 업그레이드 탭 → 스킬 탭 → 장비 탭 → 퀘스트 → 기타 기능
+- 각 단계마다 툴팁 박스(240px) + 금색 링이 해당 UI 요소를 가리킴
+- 링 애니메이션: pulse 효과로 주목성 강조
+- "다음 →" / "건너뛰기" 버튼
+- `localStorage('idleRPG_tutorial_done')` 로 완료 여부 저장 (1회만 표시)
+- `TutorialSystem.restart()` 지원 (설정에서 재시작 가능)
+
+**수정/추가 파일**:
+- `docs/js/systems/TutorialSystem.js`: 신규 생성
+- `docs/js/scenes/UIScene.js`: create() 완료 후 600ms 딜레이로 tutorial 시작
+- `docs/index.html`: TutorialSystem.js 스크립트 로드 추가
+- `docs/css/style.css`: 튜토리얼 전용 스타일 추가 (#tutorial-overlay, #tutorial-box, #tutorial-ring 등)
 
 ---
 

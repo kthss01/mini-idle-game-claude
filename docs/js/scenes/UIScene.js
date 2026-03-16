@@ -36,6 +36,12 @@ class UIScene extends Phaser.Scene {
 
     UISceneInstance = this;
     this.onGameUpdate();
+
+    // 첫 플레이어 튜토리얼 (새 게임이거나 튜토리얼 미완료 시)
+    if (typeof TutorialSystem !== 'undefined') {
+      var self = this;
+      setTimeout(function() { TutorialSystem.start(); }, 600);
+    }
   }
 
   onGameUpdate() {
