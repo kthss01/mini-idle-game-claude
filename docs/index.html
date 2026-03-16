@@ -55,5 +55,24 @@
   <!-- 진입점 (가장 마지막) -->
   <script src="./js/main.js"></script>
 
+  <!-- 반응형 스케일 조정 -->
+  <script>
+    (function() {
+      function resizeGame() {
+        var c = document.getElementById('game-container');
+        if (!c) return;
+        var scaleX = window.innerWidth / 800;
+        var scaleY = window.innerHeight / 600;
+        var scale = Math.min(scaleX, scaleY);
+        c.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resizeGame);
+      window.addEventListener('orientationchange', function() {
+        setTimeout(resizeGame, 100);
+      });
+      resizeGame();
+    })();
+  </script>
+
 </body>
 </html>

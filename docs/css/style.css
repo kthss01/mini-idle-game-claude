@@ -7,18 +7,22 @@
 
 body {
   background: #0a0a0f;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
   font-family: 'Segoe UI', sans-serif;
   overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
 }
 
 #game-container {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 800px;
   height: 600px;
+  /* JS가 viewport에 맞춰 transform을 동적으로 업데이트 */
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
 }
 
 canvas {
