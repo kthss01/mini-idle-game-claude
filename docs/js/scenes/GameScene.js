@@ -355,6 +355,14 @@ class GameScene extends Phaser.Scene {
       VFXManager.showDamageNumber(this, mx - 25, my - GameState.monster.size * 0.5, ev.doubleStrikeDmg, false);
       VFXManager.showSkillProc(this, mx - 20, my - 10, '🌀', 0x88aaff);
     }
+    // 흡혈 힐 VFX
+    if (ev.lifestealHeal > 0) {
+      VFXManager.showHealNumber(this, CONFIG.HERO_X, CONFIG.HERO_Y, ev.lifestealHeal);
+    }
+    // 광전사 VFX (30% 확률로 표시, 스팸 방지)
+    if (ev.berserkerActive && Math.random() < 0.3) {
+      VFXManager.showBerserkerFlame(this, CONFIG.HERO_X, CONFIG.HERO_Y);
+    }
 
     // 몬스터 피격 흔들림
     if (this.monsterContainer) {
@@ -382,6 +390,10 @@ class GameScene extends Phaser.Scene {
   _onMonsterAttack(ev) {
     VFXManager.showDamageNumber(this, CONFIG.HERO_X, CONFIG.HERO_Y - 60, ev.damage, ev.isCrit);
     VFXManager.showHeroHit(this, this.heroSprite);
+    // 강철 피부 방어막 VFX
+    if (ev.ironSkinBlocked > 0) {
+      VFXManager.showShieldBlock(this, CONFIG.HERO_X, CONFIG.HERO_Y);
+    }
   }
 
   _onSkillActivated(ev) {

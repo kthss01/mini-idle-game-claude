@@ -99,11 +99,12 @@ var SkillSystem = {
 
   applyLifesteal: function(damage) {
     var rate = this.getSkillValue('lifesteal');
-    if (rate <= 0) return;
+    if (rate <= 0) return 0;
     var heal = Math.floor(damage * rate);
     if (heal > 0) {
       GameState.hero.hp = Math.min(GameState.hero.maxHp, GameState.hero.hp + heal);
     }
+    return heal;
   },
 
   getBerserkerMult: function() {

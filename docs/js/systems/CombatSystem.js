@@ -80,10 +80,14 @@ var CombatSystem = {
 
       GameState.monster.hp = Math.max(0, GameState.monster.hp - totalDamage);
 
-      // 흡혈: HP 회복
+      // 흡혈: HP 회복 (반환값 VFX에 사용)
+      var lifestealHeal = 0;
       if (typeof SkillSystem !== 'undefined') {
-        SkillSystem.applyLifesteal(totalDamage);
+        lifestealHeal = SkillSystem.applyLifesteal(totalDamage) || 0;
       }
+
+      // 광전사 활성 여부
+      var berserkerActive = (typeof SkillSystem !== 'undefined') && SkillSystem.getBerserkerMult() > 1;
 
       // StatsTracker 데미지 기록
       if (typeof StatsTracker !== 'undefined') {
@@ -115,6 +119,8 @@ var CombatSystem = {
         thunderBonus: thunderBonus,
         doubleStrike: doubleStrike,
         doubleStrikeDmg: doubleStrikeDmg,
+        lifestealHeal: lifestealHeal,
+        berserkerActive: berserkerActive,
         targetDead: GameState.monster.hp <= 0
       });
     }
@@ -132,8 +138,11 @@ var CombatSystem = {
 
       // 강철 피부: 받는 피해 감소
       var actualDamage = monsterResult.damage;
+      var ironSkinBlocked = 0;
       if (typeof SkillSystem !== 'undefined') {
-        actualDamage = Math.max(1, actualDamage - SkillSystem.getIronSkinReduction());
+        var reduction = SkillSystem.getIronSkinReduction();
+        ironSkinBlocked = Math.min(reduction, monsterResult.damage - 1);
+        actualDamage = Math.max(1, actualDamage - reduction);
       }
 
       GameState.hero.hp = Math.max(0, GameState.hero.hp - actualDamage);
@@ -147,7 +156,8 @@ var CombatSystem = {
         type: 'monsterAttack',
         damage: actualDamage,
         isCrit: monsterResult.isCrit,
-        shielded: false
+        shielded: false,
+        ironSkinBlocked: ironSkinBlocked
       });
 
       // 영웅 사망 처리 (HP가 0이 되면 회복)

@@ -19,7 +19,7 @@
 | 1 | 반응형 레이아웃 | ✅ 완료 |
 | 2 | 타이틀/슬롯 선택 화면 | ✅ 완료 |
 | 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | ✅ 완료 |
-| 4 | 스킬별 고유 VFX | 대기 |
+| 4 | 스킬별 고유 VFX | ✅ 완료 |
 | 5 | 튜토리얼 | 대기 |
 | 6 | 두 장비 시스템 통일 | 대기 |
 
@@ -46,6 +46,23 @@ body: flex 레이아웃 → position: relative + width/height 100vw/vh
 #game-container: position absolute + top/left 50% + translate(-50%,-50%)
 JS: window.resize 이벤트에서 scale = min(vw/800, vh/600) 계산 후 transform 적용
 ```
+
+---
+
+### [4] 스킬별 고유 VFX (2026-03-16)
+
+**이전 상태**: 번개(⚡)·연타(🌀)·맹독(☠) 외 흡혈/광전사/강철 피부 VFX 없음
+
+**추가 VFX:**
+- **흡혈(lifesteal)**: 공격 시 힐량만큼 분홍 "+숫자" 팝업 + 하트(♥) 파티클 2개
+- **광전사(berserker)**: HP < 50% 공격 시 30% 확률로 주황 불꽃 링 2중 파동 (스팸 방지)
+- **강철 피부(ironSkin)**: 피격 시 차단량 > 0이면 파란 방패 파동 플래시
+
+**수정 파일:**
+- `docs/js/vfx/VFXManager.js`: `showHealNumber`, `showShieldBlock`, `showBerserkerFlame` 3개 함수 추가
+- `docs/js/systems/SkillSystem.js`: `applyLifesteal()` 힐량 반환하도록 수정
+- `docs/js/systems/CombatSystem.js`: heroAttack 이벤트에 `lifestealHeal`, `berserkerActive` 포함 / monsterAttack 이벤트에 `ironSkinBlocked` 포함
+- `docs/js/scenes/GameScene.js`: `_onHeroAttack`, `_onMonsterAttack`에서 새 VFX 호출
 
 ---
 

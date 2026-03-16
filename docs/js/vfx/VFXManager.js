@@ -248,6 +248,79 @@ var VFXManager = {
     });
   },
 
+  // 흡혈 힐 숫자 (붉은 + 기호)
+  showHealNumber: function(scene, x, y, amount) {
+    var txt = scene.add.text(x + randomBetween(-12, 12), y - 50, '+' + amount, {
+      fontSize: '15px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#ff6b9d',
+      stroke: '#000',
+      strokeThickness: 3,
+      fontStyle: 'bold'
+    }).setDepth(51);
+
+    // 하트 파티클 1~2개
+    for (var i = 0; i < 2; i++) {
+      var heart = scene.add.text(
+        x + randomBetween(-18, 18),
+        y + randomBetween(-30, -10),
+        '♥',
+        { fontSize: '12px', color: '#ff4d6d' }
+      ).setDepth(50);
+
+      scene.tweens.add({
+        targets: heart,
+        y: heart.y - randomBetween(25, 45),
+        alpha: 0,
+        duration: 700 + i * 120,
+        ease: 'Power1',
+        delay: i * 80,
+        onComplete: function() { heart.destroy(); }
+      });
+    }
+
+    scene.tweens.add({
+      targets: txt,
+      y: txt.y - 38,
+      alpha: 0,
+      duration: 900,
+      ease: 'Power2',
+      onComplete: function() { txt.destroy(); }
+    });
+  },
+
+  // 강철 피부 방어막 (파란 방패 파동)
+  showShieldBlock: function(scene, x, y) {
+    var ring1 = scene.add.circle(x, y - 20, 26, 0x4a9eff, 0.55).setDepth(48);
+    var ring2 = scene.add.circle(x, y - 20, 16, 0xaad4ff, 0.4).setDepth(49);
+
+    scene.tweens.add({
+      targets: [ring1, ring2],
+      scaleX: 1.8,
+      scaleY: 1.8,
+      alpha: 0,
+      duration: 350,
+      ease: 'Power2',
+      onComplete: function() { ring1.destroy(); ring2.destroy(); }
+    });
+  },
+
+  // 광전사 불꽃 링 (영웅 위치, 발동 확률 제어는 호출자가 처리)
+  showBerserkerFlame: function(scene, x, y) {
+    var ring = scene.add.circle(x, y, 28, 0xff4400, 0.3).setDepth(8);
+    var inner = scene.add.circle(x, y, 16, 0xff8800, 0.45).setDepth(8);
+
+    scene.tweens.add({
+      targets: [ring, inner],
+      scaleX: 1.6,
+      scaleY: 1.6,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power1',
+      onComplete: function() { ring.destroy(); inner.destroy(); }
+    });
+  },
+
   // 아이템 드롭 알림
   showItemDrop: function(scene, x, y, item) {
     if (!item) return;
