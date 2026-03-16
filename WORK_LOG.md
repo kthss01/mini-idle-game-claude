@@ -17,7 +17,7 @@
 | 순위 | 항목 | 상태 |
 |------|------|------|
 | 1 | 반응형 레이아웃 | ✅ 완료 |
-| 2 | 타이틀/슬롯 선택 화면 | 대기 |
+| 2 | 타이틀/슬롯 선택 화면 | ✅ 완료 |
 | 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | 대기 |
 | 4 | 스킬별 고유 VFX | 대기 |
 | 5 | 튜토리얼 | 대기 |
@@ -46,5 +46,27 @@ body: flex 레이아웃 → position: relative + width/height 100vw/vh
 #game-container: position absolute + top/left 50% + translate(-50%,-50%)
 JS: window.resize 이벤트에서 scale = min(vw/800, vh/600) 계산 후 transform 적용
 ```
+
+---
+
+### [2] 타이틀/슬롯 선택 화면 구현 (2026-03-16)
+
+**문제**: 게임 시작 시 BootScene이 바로 세이브 로드 후 GameScene으로 전환. 슬롯 선택이 게임 진입 후 설정 패널에서만 가능했음.
+
+**구현 내용**:
+- 새 씬 `TitleScene` 추가 (TitleScene → BootScene → GameScene 순서)
+- 게임 시작 시 슬롯 선택 화면 표시 (3개 슬롯 카드)
+  - 저장 데이터: 레벨, 스테이지, 환생 횟수, 플레이 시간, 마지막 저장 시각
+  - 빈 슬롯: 📂 아이콘 + "새 게임" 버튼
+  - 저장 슬롯: 데이터 요약 + "이어하기" 버튼(금색)
+- Phaser 캔버스 위에 별 파티클(깜박이는 별 60개) 배경 애니메이션
+- 게임 로고(⚔️) 상하 부유 애니메이션
+- 슬롯 선택 시 `SaveSlotManager.setActiveSlot(n)` → BootScene 진행
+
+**수정/추가 파일**:
+- `docs/js/scenes/TitleScene.js`: 신규 생성
+- `docs/js/main.js`: scene 배열에 TitleScene 추가
+- `docs/index.html`: TitleScene.js 스크립트 로드 추가
+- `docs/css/style.css`: 타이틀 화면 전용 스타일 추가
 
 ---

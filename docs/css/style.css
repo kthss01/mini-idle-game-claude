@@ -2588,3 +2588,179 @@ canvas {
   from { text-shadow: 0 0 4px rgba(255,215,0,0.4); }
   to   { text-shadow: 0 0 10px rgba(255,215,0,0.9); }
 }
+
+/* ===== 타이틀 화면 ===== */
+#title-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  pointer-events: all;
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(7,7,20,0.85) 0%, rgba(5,5,15,0.95) 100%);
+}
+
+/* 타이틀 헤더 */
+#title-header {
+  text-align: center;
+  user-select: none;
+}
+
+#title-logo {
+  font-size: 48px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 12px rgba(255,215,0,0.6));
+  animation: title-float 3s ease-in-out infinite;
+}
+
+@keyframes title-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+#title-name {
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(255,215,0,0.5), 0 2px 8px rgba(0,0,0,0.8);
+}
+
+#title-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+/* 슬롯 카드 영역 */
+#title-slots {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.title-slot-card {
+  width: 200px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 18px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  cursor: default;
+}
+
+.title-slot-card:hover {
+  border-color: rgba(255,215,0,0.45);
+  background: rgba(255,215,0,0.04);
+  transform: translateY(-3px);
+}
+
+.title-slot-card.slot-empty:hover {
+  border-color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
+}
+
+.slot-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+/* 빈 슬롯 */
+.slot-empty-icon {
+  font-size: 36px;
+  opacity: 0.35;
+  margin: 8px 0 4px;
+}
+
+.slot-empty-text {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+  flex: 1;
+}
+
+/* 저장 데이터 정보 */
+.slot-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.slot-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.slot-info-label {
+  color: rgba(255,255,255,0.4);
+}
+
+.slot-info-value {
+  font-weight: 600;
+  color: #fff;
+}
+
+.slot-last-save {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 6px;
+}
+
+/* 시작 버튼 */
+.slot-start-btn {
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.slot-start-btn:hover {
+  background: rgba(255,255,255,0.13);
+  border-color: rgba(255,255,255,0.35);
+  color: #fff;
+}
+
+.slot-continue-btn {
+  border-color: rgba(255,215,0,0.5);
+  background: rgba(255,215,0,0.1);
+  color: #ffd700;
+}
+
+.slot-continue-btn:hover {
+  background: rgba(255,215,0,0.2);
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255,215,0,0.25);
+  color: #ffd700;
+}
+
+/* 하단 버전 표시 */
+#title-footer {
+  font-size: 10px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.5px;
+}

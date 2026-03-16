@@ -5,7 +5,7 @@ var gameConfig = {
   height: CONFIG.GAME_HEIGHT,
   backgroundColor: '#0a0a1a',
   parent: 'game-container',
-  scene: [BootScene, GameScene, UIScene],
+  scene: [TitleScene, BootScene, GameScene, UIScene],
   fps: {
     target: 60,
     forceSetTimeOut: false
