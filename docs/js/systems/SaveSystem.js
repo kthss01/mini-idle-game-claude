@@ -325,16 +325,21 @@ var SaveSystem = {
     if (GameState.shop && saveData.shop) {
       var sh = saveData.shop;
       if (sh.inventory) {
-        GameState.shop.inventory.hpPotion    = sh.inventory.hpPotion    || 0;
-        GameState.shop.inventory.goldBooster = sh.inventory.goldBooster || 0;
-        GameState.shop.inventory.expBooster  = sh.inventory.expBooster  || 0;
-        GameState.shop.inventory.dropBooster = sh.inventory.dropBooster || 0;
-        GameState.shop.inventory.revive      = sh.inventory.revive      || 0;
+        GameState.shop.inventory.hpPotion     = sh.inventory.hpPotion     || 0;
+        GameState.shop.inventory.fullHpPotion = sh.inventory.fullHpPotion || 0;
+        GameState.shop.inventory.goldBooster  = sh.inventory.goldBooster  || 0;
+        GameState.shop.inventory.expBooster   = sh.inventory.expBooster   || 0;
+        GameState.shop.inventory.dropBooster  = sh.inventory.dropBooster  || 0;
+        GameState.shop.inventory.atkBooster   = sh.inventory.atkBooster   || 0;
+        GameState.shop.inventory.critBooster  = sh.inventory.critBooster  || 0;
+        GameState.shop.inventory.revive       = sh.inventory.revive       || 0;
       }
       if (sh.activeBuffs) {
         GameState.shop.activeBuffs.goldBooster = sh.activeBuffs.goldBooster || 0;
         GameState.shop.activeBuffs.expBooster  = sh.activeBuffs.expBooster  || 0;
         GameState.shop.activeBuffs.dropBooster = sh.activeBuffs.dropBooster || 0;
+        GameState.shop.activeBuffs.atkBooster  = sh.activeBuffs.atkBooster  || 0;
+        GameState.shop.activeBuffs.critBooster = sh.activeBuffs.critBooster || 0;
       }
     }
 

@@ -18,7 +18,7 @@
 |------|------|------|
 | 1 | 반응형 레이아웃 | ✅ 완료 |
 | 2 | 타이틀/슬롯 선택 화면 | ✅ 완료 |
-| 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | 대기 |
+| 3 | 콘텐츠 확장 (퀘스트/레시피/상점) | ✅ 완료 |
 | 4 | 스킬별 고유 VFX | 대기 |
 | 5 | 튜토리얼 | 대기 |
 | 6 | 두 장비 시스템 통일 | 대기 |
@@ -46,6 +46,31 @@ body: flex 레이아웃 → position: relative + width/height 100vw/vh
 #game-container: position absolute + top/left 50% + translate(-50%,-50%)
 JS: window.resize 이벤트에서 scale = min(vw/800, vh/600) 계산 후 transform 적용
 ```
+
+---
+
+### [3] 콘텐츠 확장 (2026-03-16)
+
+**QuestSystem:**
+- QUEST_POOL에 `craft` 타입 추가 (제작 퀘스트, 목표 2/5/10/20)
+- DAILY_DEFS에 3개 추가: 보스 사냥(killBoss×3, 영혼석2), 일일 제작(craft×3, 영혼석1), 일일 크리티컬(crit×50, 영혼석1)
+
+**CraftingSystem:**
+- 6개 레시피 추가: 대형 경험의 서 / 펫 먹이(소)×3 / 펫 먹이(중)×2 / HP포션×2 / 부활석 / 영혼석
+- 제작 성공 시 `QuestSystem.updateProgress('craft', 1)` 호출
+- 새 result 타입 처리: `petFood`, `shopItem`, `soulStone`, `expBook2`
+
+**ShopSystem:**
+- 소모품 3개 추가: 완전 회복 포션(HP 100%), 전투 부스터(ATK 1.5배 10분), 집중 부스터(크리티컬 1.5배 10분)
+- GameState.shop 초기값에 새 필드 추가
+
+**CombatSystem:**
+- 전투 부스터(`atkBooster`) 적용: 영웅 effectiveAtk에 1.5배 곱셈
+- 집중 부스터(`critBooster`) 적용: effectiveCrit에 1.5배 (최대 100% 캡)
+- 연타 계산도 effectiveCrit 사용하도록 수정
+
+**SaveSystem:**
+- 새 shop.inventory/activeBuffs 필드 복원 코드 추가 (기존 세이브는 || 0 fallback)
 
 ---
 

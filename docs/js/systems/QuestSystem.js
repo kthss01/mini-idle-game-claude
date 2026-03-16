@@ -16,13 +16,17 @@ var QuestSystem = {
     { type: 'stage',    targets: [3, 5, 10, 15],             reward: 'gold', rewardMults: [2, 4, 8, 15] },
     { type: 'gold',     targets: [500, 2000, 8000, 30000],   reward: 'exp',  rewardMults: [2, 4, 8, 15] },
     { type: 'upgrade',  targets: [3, 5, 8, 12],              reward: 'gold', rewardMults: [2, 5, 10, 20] },
-    { type: 'crit',     targets: [10, 30, 60, 100],          reward: 'gold', rewardMults: [1.5, 3, 6, 12] }
+    { type: 'crit',     targets: [10, 30, 60, 100],          reward: 'gold', rewardMults: [1.5, 3, 6, 12] },
+    { type: 'craft',    targets: [2, 5, 10, 20],             reward: 'gold', rewardMults: [2, 4, 8, 15] }
   ],
 
   DAILY_DEFS: [
-    { id: 'daily_kill',    name: '일일 사냥',  type: 'kill',       target: 200, reward: { gold: 5000, soulStone: 1 } },
-    { id: 'daily_stage',   name: '일일 탐험',  type: 'stageReach', target: 5,   reward: { gold: 3000, soulStone: 1 } },
-    { id: 'daily_upgrade', name: '일일 강화',  type: 'upgrade',    target: 5,   reward: { gold: 4000, soulStone: 1 } }
+    { id: 'daily_kill',    name: '일일 사냥',    type: 'kill',       target: 200, reward: { gold: 5000, soulStone: 1 } },
+    { id: 'daily_stage',   name: '일일 탐험',    type: 'stageReach', target: 5,   reward: { gold: 3000, soulStone: 1 } },
+    { id: 'daily_upgrade', name: '일일 강화',    type: 'upgrade',    target: 5,   reward: { gold: 4000, soulStone: 1 } },
+    { id: 'daily_boss',    name: '보스 사냥',    type: 'killBoss',   target: 3,   reward: { gold: 6000, soulStone: 2 } },
+    { id: 'daily_craft',   name: '일일 제작',    type: 'craft',      target: 3,   reward: { gold: 5000, soulStone: 1 } },
+    { id: 'daily_crit',    name: '일일 크리티컬', type: 'crit',      target: 50,  reward: { gold: 4500, soulStone: 1 } }
   ],
 
   init: function() {

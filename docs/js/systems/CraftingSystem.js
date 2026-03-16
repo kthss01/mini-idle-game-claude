@@ -24,8 +24,14 @@ var CraftingSystem = {
     { id: 'craftEnhanceStone', cat: 'material',  name: '강화석',         icon: '🔧', cost: { ironOre: 3, magicCrystal: 2 },                      result: { type: 'enhanceStone', amount: 1 } },
     { id: 'craftEnhanceStone3',cat: 'material',  name: '강화석 x3',      icon: '🔧', cost: { ironOre: 8, magicCrystal: 5 },                      result: { type: 'enhanceStone', amount: 3 } },
     { id: 'craftLegendStone',  cat: 'material',  name: '전설 변환석',    icon: '✨', cost: { dragonScale: 5, voidEssence: 3, ancientShard: 1 },   result: { type: 'legendStone', amount: 1 } },
-    { id: 'craftExpBook',      cat: 'special',   name: '경험의 서',      icon: '📖', cost: { magicCrystal: 5, voidEssence: 2 },                  result: { type: 'expBook' } },
-    { id: 'craftGoldScroll',   cat: 'special',   name: '황금 주문서',    icon: '📜', cost: { ancientShard: 2, dragonScale: 3 },                  result: { type: 'goldScroll' } }
+    { id: 'craftExpBook',      cat: 'special',   name: '경험의 서',      icon: '📖', cost: { magicCrystal: 5, voidEssence: 2 },                          result: { type: 'expBook' } },
+    { id: 'craftGoldScroll',   cat: 'special',   name: '황금 주문서',    icon: '📜', cost: { ancientShard: 2, dragonScale: 3 },                          result: { type: 'goldScroll' } },
+    { id: 'craftExpBook2',     cat: 'special',   name: '대형 경험의 서', icon: '📚', cost: { magicCrystal: 8, voidEssence: 4, ancientShard: 2 },           result: { type: 'expBook2' } },
+    { id: 'craftPetFoodS',     cat: 'special',   name: '펫 먹이(소) ×3', icon: '🌿', cost: { ironOre: 3, magicCrystal: 1 },                               result: { type: 'petFood', foodId: 'petFood_s', amount: 3 } },
+    { id: 'craftPetFoodM',     cat: 'special',   name: '펫 먹이(중) ×2', icon: '🍖', cost: { dragonScale: 2, magicCrystal: 2 },                            result: { type: 'petFood', foodId: 'petFood_m', amount: 2 } },
+    { id: 'craftHpPotion',     cat: 'special',   name: 'HP 포션 ×2',     icon: '🧪', cost: { ironOre: 4, magicCrystal: 2 },                               result: { type: 'shopItem', itemId: 'hpPotion', amount: 2 } },
+    { id: 'craftRevive',       cat: 'special',   name: '부활석',         icon: '💎', cost: { dragonScale: 3, ancientShard: 1 },                            result: { type: 'shopItem', itemId: 'revive', amount: 1 } },
+    { id: 'craftSoulStone',    cat: 'special',   name: '영혼석',         icon: '🔮', cost: { ancientShard: 3, voidEssence: 2 },                            result: { type: 'soulStone', amount: 1 } }
   ],
 
   canCraft: function(recipeId) {
@@ -59,28 +65,53 @@ var CraftingSystem = {
 
     // 결과물 지급
     var res = recipe.result;
+    var craftResult = null;
     if (res.type === 'equipment') {
       var item = this._craftEquipment(res);
       if (item && typeof EquipmentSystem !== 'undefined') {
-        if (EquipmentSystem._addToInventory(item)) return { type: 'equipment', item: item };
+        if (EquipmentSystem._addToInventory(item)) craftResult = { type: 'equipment', item: item };
       }
-      return null;
     } else if (res.type === 'enhanceStone') {
       GameState.crafting.enhanceMaterials.enhanceStone += res.amount;
-      return { type: 'enhanceStone', amount: res.amount };
+      craftResult = { type: 'enhanceStone', amount: res.amount };
     } else if (res.type === 'legendStone') {
       GameState.crafting.enhanceMaterials.legendStone += res.amount;
-      return { type: 'legendStone', amount: res.amount };
+      craftResult = { type: 'legendStone', amount: res.amount };
     } else if (res.type === 'expBook') {
       var expAmt = 1000 * GameState.stage.current;
       if (typeof UpgradeSystem !== 'undefined') UpgradeSystem.addExp(expAmt);
-      return { type: 'expBook', amount: expAmt };
+      craftResult = { type: 'expBook', amount: expAmt };
+    } else if (res.type === 'expBook2') {
+      var expAmt2 = 3000 * GameState.stage.current;
+      if (typeof UpgradeSystem !== 'undefined') UpgradeSystem.addExp(expAmt2);
+      craftResult = { type: 'expBook2', amount: expAmt2 };
     } else if (res.type === 'goldScroll') {
       var goldGain = Math.floor(GameState.hero.gold * 0.5);
       GameState.hero.gold += goldGain;
-      return { type: 'goldScroll', amount: goldGain };
+      craftResult = { type: 'goldScroll', amount: goldGain };
+    } else if (res.type === 'petFood') {
+      if (GameState.pets && GameState.pets.food) {
+        GameState.pets.food[res.foodId] = (GameState.pets.food[res.foodId] || 0) + res.amount;
+      }
+      craftResult = { type: 'petFood', foodId: res.foodId, amount: res.amount };
+    } else if (res.type === 'shopItem') {
+      if (GameState.shop && GameState.shop.inventory) {
+        GameState.shop.inventory[res.itemId] = (GameState.shop.inventory[res.itemId] || 0) + res.amount;
+      }
+      craftResult = { type: 'shopItem', itemId: res.itemId, amount: res.amount };
+    } else if (res.type === 'soulStone') {
+      if (GameState.prestige) {
+        GameState.prestige.soulStones += res.amount;
+        GameState.prestige.totalSoulStones += res.amount;
+      }
+      craftResult = { type: 'soulStone', amount: res.amount };
     }
-    return null;
+
+    // 제작 완료 퀘스트 진행도 업데이트
+    if (craftResult && typeof QuestSystem !== 'undefined') {
+      QuestSystem.updateProgress('craft', 1);
+    }
+    return craftResult;
   },
 
   // 강화석으로 골드 없이 장비 강화

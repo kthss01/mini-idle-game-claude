@@ -2,21 +2,24 @@
 
 // GameState에 shop 필드 추가 (state.js 이후 로드됨)
 GameState.shop = {
-  inventory: { hpPotion: 0, goldBooster: 0, expBooster: 0, revive: 0, dropBooster: 0 },
-  activeBuffs: { goldBooster: 0, expBooster: 0, dropBooster: 0 }
+  inventory: { hpPotion: 0, goldBooster: 0, expBooster: 0, revive: 0, dropBooster: 0, fullHpPotion: 0, atkBooster: 0, critBooster: 0 },
+  activeBuffs: { goldBooster: 0, expBooster: 0, dropBooster: 0, atkBooster: 0, critBooster: 0 }
 };
 
 var ShopSystem = {
 
   CONSUMABLES: [
-    { id: 'hpPotion',    name: 'HP 포션',    icon: '🧪', maxStack: 20, desc: 'HP 50% 회복' },
-    { id: 'goldBooster', name: '황금 부스터', icon: '💰', maxStack: 5,  desc: '10분 골드 2배', isBuff: true },
-    { id: 'expBooster',  name: 'EXP 부스터',  icon: '✨', maxStack: 5,  desc: '10분 EXP 2배',  isBuff: true },
-    { id: 'dropBooster', name: '드롭 부스터', icon: '🎁', maxStack: 5,  desc: '10분 드롭률 2배', isBuff: true },
-    { id: 'revive',      name: '부활석',      icon: '💎', maxStack: 3,  desc: '사망 시 자동 부활' }
+    { id: 'hpPotion',     name: 'HP 포션',       icon: '🧪', maxStack: 20, desc: 'HP 50% 회복' },
+    { id: 'fullHpPotion', name: '완전 회복 포션', icon: '💉', maxStack: 5,  desc: 'HP 100% 회복' },
+    { id: 'goldBooster',  name: '황금 부스터',   icon: '💰', maxStack: 5,  desc: '10분 골드 2배',       isBuff: true },
+    { id: 'expBooster',   name: 'EXP 부스터',    icon: '✨', maxStack: 5,  desc: '10분 EXP 2배',        isBuff: true },
+    { id: 'dropBooster',  name: '드롭 부스터',   icon: '🎁', maxStack: 5,  desc: '10분 드롭률 2배',     isBuff: true },
+    { id: 'atkBooster',   name: '전투 부스터',   icon: '⚔️', maxStack: 5,  desc: '10분 ATK 1.5배',      isBuff: true },
+    { id: 'critBooster',  name: '집중 부스터',   icon: '🎯', maxStack: 5,  desc: '10분 크리티컬 1.5배', isBuff: true },
+    { id: 'revive',       name: '부활석',        icon: '💎', maxStack: 3,  desc: '사망 시 자동 부활' }
   ],
 
-  PRICE_MULT: { hpPotion: 5, goldBooster: 30, expBooster: 30, dropBooster: 30, revive: 50 },
+  PRICE_MULT: { hpPotion: 5, fullHpPotion: 10, goldBooster: 30, expBooster: 30, dropBooster: 30, atkBooster: 40, critBooster: 35, revive: 50 },
 
   getPrice: function(id) {
     return Math.floor(GameState.stage.current * (this.PRICE_MULT[id] || 10));
@@ -42,7 +45,9 @@ var ShopSystem = {
         GameState.hero.maxHp,
         GameState.hero.hp + Math.floor(GameState.hero.maxHp * 0.5)
       );
-    } else if (id === 'goldBooster' || id === 'expBooster' || id === 'dropBooster') {
+    } else if (id === 'fullHpPotion') {
+      GameState.hero.hp = GameState.hero.maxHp;
+    } else if (id === 'goldBooster' || id === 'expBooster' || id === 'dropBooster' || id === 'atkBooster' || id === 'critBooster') {
       GameState.shop.activeBuffs[id] = Date.now() + 600000;
     } else {
       return false; // revive는 직접 사용 불가 (자동 소모)

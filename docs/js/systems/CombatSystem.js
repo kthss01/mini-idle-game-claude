@@ -42,11 +42,21 @@ var CombatSystem = {
       if (typeof SkillSystem !== 'undefined') {
         effectiveAtk = Math.floor(GameState.hero.atk * SkillSystem.getBerserkerMult());
       }
+      // 전투 부스터: ATK 1.5배
+      if (typeof ShopSystem !== 'undefined' && ShopSystem.isBuffActive('atkBooster')) {
+        effectiveAtk = Math.floor(effectiveAtk * 1.5);
+      }
+
+      // 집중 부스터: 크리티컬 확률 1.5배
+      var effectiveCrit = GameState.hero.critChance;
+      if (typeof ShopSystem !== 'undefined' && ShopSystem.isBuffActive('critBooster')) {
+        effectiveCrit = Math.min(1, effectiveCrit * 1.5);
+      }
 
       var heroResult = this.calculateDamage(
         effectiveAtk,
         GameState.monster.def,
-        GameState.hero.critChance,
+        effectiveCrit,
         GameState.hero.critMult
       );
 
@@ -63,7 +73,7 @@ var CombatSystem = {
       var doubleStrike = false, doubleStrikeDmg = 0;
       if (typeof SkillSystem !== 'undefined' && SkillSystem.rollDoubleStrike()) {
         doubleStrike = true;
-        var second = this.calculateDamage(effectiveAtk, GameState.monster.def, GameState.hero.critChance, GameState.hero.critMult);
+        var second = this.calculateDamage(effectiveAtk, GameState.monster.def, effectiveCrit, GameState.hero.critMult);
         doubleStrikeDmg = second.damage;
         totalDamage += doubleStrikeDmg;
       }
